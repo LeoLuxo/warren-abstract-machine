@@ -1,6 +1,8 @@
 [package]
-name = "warren-abstract-machine"
-version = "0.1.0"
 edition = "2021"
+name    = "warren-abstract-machine"
+version = "0.1.0"
 
 [dependencies]
+anyhow = "1.0.86"
+logos  = "0.14.0"

@@ -1,28 +1,23 @@
-use std::marker::PhantomData;
-
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
 
+pub mod ast;
+pub mod l_zero;
+pub mod parser;
+
 pub trait Language {
 	type Program;
 	type Query;
 }
 
-pub struct Machine<L: Language> {
-	_language: PhantomData<L>,
-}
-
 type Substitution = ();
 
-impl<L: Language> Machine<L> {
-	pub fn new(program: L::Program) -> Machine<L> {
-		todo!();
-	}
+type Cell = ();
 
-	pub fn submit_query(query: L::Query) -> Substitution {
-		todo!();
-	}
+pub trait Machine<L: Language>: Sized {
+	fn new(program: L::Program) -> Self;
+	fn submit_query(query: L::Query) -> Substitution;
 }
