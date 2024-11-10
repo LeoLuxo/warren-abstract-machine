@@ -25,8 +25,8 @@ pub struct Fact(pub Atom);
 /// - `Path(X, Z) :- edge(X, Y), Path(Y, Z).`
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Rule {
-	head: Atom,
-	body: Vec<Atom>,
+	pub head: Atom,
+	pub body: Vec<Atom>,
 }
 
 /// Represents a Prolog atom.

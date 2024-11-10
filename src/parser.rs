@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
 
-use crate::ast::{Constant, Structure, Term, Variable};
+use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
 
 /*
 --------------------------------------------------------------------------------
@@ -69,11 +69,50 @@ impl Parser<'_> {
 		}
 	}
 
+	pub fn parse_clause(&mut self) -> Result<Clause> {
+		let head = self.parse_atom()?;
+
+		match self.next() {
+			Some(Token::Dot) => Ok(Clause::Fact(Fact(head))),
+
+			Some(Token::Implies) => Ok(Clause::Rule(Rule {
+				head,
+				body: self.parse_body_atoms()?,
+			})),
+
+			_ => bail!("syntax error, expected clause"),
+		}
+	}
+
+	fn parse_body_atoms(&mut self) -> Result<Vec<Atom>> {
+		let mut atoms = Vec::<Atom>::new();
+
+		loop {
+			atoms.push(self.parse_atom()?);
+
+			match self.next() {
+				Some(Token::Comma) => continue,
+
+				Some(Token::Dot) => {
+					ensure!(atoms.len() >= 1, "rule has zero body atoms, expected at least one");
+
+					return Ok(atoms);
+				}
+
+				_ => bail!("syntax error, expected comma or dot"),
+			}
+		}
+	}
+
+	fn parse_atom(&mut self) -> Result<Atom> {
+		Ok(Atom(self.parse_term_arguments()?))
+	}
+
 	fn parse_term(&mut self) -> Result<Term> {
 		match self.next() {
 			Some(Token::Functor(ident)) => Ok(Term::Structure(Structure {
 				functor: ident,
-				arguments: self.parse_structure_arguments()?,
+				arguments: self.parse_term_arguments()?,
 			})),
 
 			Some(Token::UppercaseIdentifier(ident)) => Ok(Term::Variable(Variable(ident))),
@@ -84,7 +123,7 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_structure_arguments(&mut self) -> Result<Vec<Term>> {
+	fn parse_term_arguments(&mut self) -> Result<Vec<Term>> {
 		let mut args = Vec::<Term>::new();
 
 		loop {
