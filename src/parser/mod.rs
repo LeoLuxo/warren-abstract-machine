@@ -1,8 +1,5 @@
-use std::{iter::Peekable, str::Chars};
-
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
-use tokens::Token;
 
 use crate::ast::{Constant, Structure, Term, Variable};
 
@@ -12,108 +9,92 @@ use crate::ast::{Constant, Structure, Term, Variable};
 --------------------------------------------------------------------------------
 */
 
-pub mod tokens;
+#[derive(Clone, Debug, Logos)]
+#[logos(skip r"[ \t\f]+")]
+pub enum Token {
+	/// A comment, a percent followed by any number of characters until the end of the line.
+	/// Is automatically skipped by the lexer
+	#[regex(r"%[^\n\r]*", logos::skip)]
+	Comment,
 
-pub fn parse(str: String) {}
+	/// A line break, so any permutation of \n and \r for one of more empty lines.
+	/// Is automatically skipped by the lexer
+	#[regex(r"[\n|\r|\r\n]+", logos::skip)]
+	LineBreak,
 
-struct Parser<'a>(Peekable<Chars<'a>>);
+	#[token(",")]
+	Comma,
+	#[token(".")]
+	Dot,
+	#[token(":-")]
+	Implies,
+	#[token(")")]
+	CloseParenthesis,
+
+	/// An uppercase identifier
+	#[regex(r"[A-Z][a-zA-Z0-9]*", lex_identifier)]
+	UppercaseIdentifier(String),
+
+	/// A lowercase identifier
+	#[regex(r"[a-z][a-zA-Z0-9]*", lex_identifier)]
+	LowercaseIdentifier(String),
+
+	/// An identifier for a functor
+	#[regex(r"[\p{XID_Start}_#][\p{XID_Continue}#]*\(", lex_functor)]
+	Functor(String),
+}
+
+/// The callback to extract an identifier.
+/// Simply gets the string
+fn lex_identifier(lexer: &mut Lexer<Token>) -> String {
+	lexer.slice().to_owned()
+}
+
+fn lex_functor(lexer: &mut Lexer<Token>) -> String {
+	let slice = lexer.slice();
+	slice[..slice.len() - 1].to_owned()
+}
+
+struct Parser<'source>(Lexer<'source, Token>);
 
 impl Parser<'_> {
-	fn new<'a>(string: &'a str) -> Parser<'a> {
-		Parser(string.chars().peekable())
+	pub fn new<'source>(source: &'source str) -> Parser<'source> {
+		Parser(Token::lexer(source))
 	}
 
-	fn next(&mut self) -> Option<char> {
-		self.0.next()
-	}
-
-	fn peek(&mut self) -> Option<char> {
-		self.0.peek().copied()
-	}
-
-	fn skip_whitespace(&mut self) {
-		while self.0.peek().map_or(false, |c| c.is_whitespace()) {
-			self.0.next();
+	fn next(&mut self) -> Option<Token> {
+		match self.0.next() {
+			Some(Ok(token)) => Some(token),
+			_ => None,
 		}
 	}
 
-	fn parse_term(mut self) -> Result<Term> {
-		self.skip_whitespace();
+	fn parse_term(&mut self) -> Result<Term> {
+		match self.next() {
+			Some(Token::Functor(ident)) => Ok(Term::Structure(Structure {
+				functor: ident,
+				arguments: self.parse_structure_arguments()?,
+			})),
 
-		let mut identifier = String::new();
+			Some(Token::UppercaseIdentifier(ident)) => Ok(Term::Variable(Variable(ident))),
 
-		loop {
-			match self.peek().context("syntax error, expected term")? {
-				'(' => {
-					self.next();
+			Some(Token::LowercaseIdentifier(ident)) => Ok(Term::Constant(Constant(ident))),
 
-					ensure!(identifier.len() >= 1, "identifier cannot be empty");
-
-					return Ok(Term::Structure(Structure {
-						functor: identifier,
-						arguments: self.parse_structure_arguments()?,
-					}));
-				}
-
-				c if c.is_ascii_alphanumeric() => {
-					self.next();
-					identifier.push(c);
-				}
-
-				_ => break,
-			}
+			_ => bail!("syntax error, expected term"),
 		}
-
-		todo!()
-
-		// if let Some(Ok(Token::LeftParenthesis)) = l.peekable().peek() {
-		// 	// term is a structure
-		// 	let _ = l.next();
-
-		// 	let identifier = match ident_token {
-		// 		Token::UppercaseIdentifier(ident) => ident,
-		// 		Token::LowercaseIdentifier(ident) => ident,
-		// 		Token::AnyIdentifier(ident) => ident,
-		// 		_ => bail!("invalid token, expected structure identifier"),
-		// 	};
-
-		// 	Ok(Term::Structure(Structure {
-		// 		functor: identifier,
-		// 		arguments: parse_structure_arguments(l)?,
-		// 	}))
-		// } else {
-		// 	// term is either a constant or a variable
-
-		// 	Ok(match ident_token {
-		// 		Token::UppercaseIdentifier(ident) => Term::Variable(Variable(ident)),
-		// 		Token::LowercaseIdentifier(ident) => Term::Constant(Constant(ident)),
-		// 		_ => bail!("invalid token, expected variable/constant identifier"),
-		// 	})
-		// }
 	}
 
-	fn parse_structure_arguments(mut self) -> Result<Vec<Term>> {
+	fn parse_structure_arguments(&mut self) -> Result<Vec<Term>> {
 		let mut args = Vec::<Term>::new();
-		let mut expecting_term = true;
 
 		loop {
-			match self.peek().context("syntax error, expected structure arguments")? {
-				_ if expecting_term => {
-					args.push(self.parse_term()?);
-					expecting_term = false;
-				}
+			args.push(self.parse_term()?);
 
-				Token::Comma => {
-					l.next();
-					expecting_term = true;
-				}
+			match self.next() {
+				Some(Token::Comma) => continue,
 
-				Token::RightParenthesis => {
-					l.next();
-
-					if args.len() < 1 {
-						bail!("structure has zero arguments, expected at least one")
-					}
+				Some(Token::CloseParenthesis) => {
+					ensure!(args.len() >= 1, "structure has zero arguments, expected at least one");
 
 					return Ok(args);
 				}
@@ -121,21 +102,5 @@ impl Parser<'_> {
 				_ => bail!("syntax error, expected comma or right parenthesis"),
 			}
 		}
-	}
-}
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_parse_term() {
-		println!()
 	}
 }
