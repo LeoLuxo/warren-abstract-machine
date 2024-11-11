@@ -1,6 +1,6 @@
 pub mod machine;
 
-use crate::Language;
+use crate::{ast::Term, Language};
 
 /*
 --------------------------------------------------------------------------------
@@ -11,6 +11,6 @@ use crate::Language;
 pub struct L0;
 
 impl Language for L0 {
-	type Program = ();
-	type Query = ();
+	type Program = Term;
+	type Query = Term;
 }

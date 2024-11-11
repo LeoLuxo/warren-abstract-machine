@@ -4,13 +4,16 @@
 --------------------------------------------------------------------------------
 */
 
+use anyhow::Result;
+use parser::Parsable;
+
 pub mod ast;
 pub mod l_zero;
 pub mod parser;
 
 pub trait Language {
-	type Program;
-	type Query;
+	type Program: Parsable;
+	type Query: Parsable;
 }
 
 type Substitution = ();
@@ -18,6 +21,16 @@ type Substitution = ();
 type Cell = ();
 
 pub trait Machine<L: Language>: Sized {
-	fn new(program: L::Program) -> Self;
+	fn from_program(program: L::Program) -> Self;
 	fn submit_query(query: L::Query) -> Substitution;
+
+	fn from_program_source(source: &str) -> Result<Self> {
+		let program = L::Program::parse_from(source)?;
+		Ok(Self::from_program(program))
+	}
+
+	fn submit_query_source(source: &str) -> Result<Substitution> {
+		let query = L::Query::parse_from(source)?;
+		Ok(Self::submit_query(query))
+	}
 }

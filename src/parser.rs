@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{bail, ensure, Result};
 use logos::{Lexer, Logos};
 
 use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
@@ -10,18 +10,12 @@ use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
 */
 
 pub trait Parsable: Sized {
-	fn parse(source: &str) -> Result<Self>;
+	fn parse_from(source: &str) -> Result<Self>;
 }
 
 impl Parsable for Term {
-	fn parse(source: &str) -> Result<Self> {
+	fn parse_from(source: &str) -> Result<Self> {
 		Parser::new(source).parse_term()
-	}
-}
-
-impl Parsable for Vec<Term> {
-	fn parse(source: &str) -> Result<Self> {
-		Parser::new(source).parse_term_arguments(None)
 	}
 }
 

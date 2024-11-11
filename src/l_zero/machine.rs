@@ -13,7 +13,7 @@ pub struct M0 {
 }
 
 impl Machine<L0> for M0 {
-	fn new(program: <L0 as Language>::Program) -> Self {
+	fn from_program(program: <L0 as Language>::Program) -> Self {
 		todo!()
 	}
 
