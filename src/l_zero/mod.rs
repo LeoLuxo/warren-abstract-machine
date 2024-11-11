@@ -1,6 +1,9 @@
 pub mod machine;
+pub mod terms;
 
-use crate::{ast::Term, Language};
+use terms::FirstOrderTerm;
+
+use crate::Language;
 
 /*
 --------------------------------------------------------------------------------
@@ -11,6 +14,6 @@ use crate::{ast::Term, Language};
 pub struct L0;
 
 impl Language for L0 {
-	type Program = Term;
-	type Query = Term;
+	type Program = FirstOrderTerm;
+	type Query = FirstOrderTerm;
 }
