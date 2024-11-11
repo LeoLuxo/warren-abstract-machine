@@ -11,7 +11,7 @@ use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
 
 #[derive(Clone, Debug, Logos)]
 #[logos(skip r"[ \t\f]+")]
-pub enum Token {
+enum Token {
 	/// A comment, a percent followed by any number of characters until the end of the line.
 	/// Is automatically skipped by the lexer
 	#[regex(r"%[^\n\r]*", logos::skip)]
@@ -63,9 +63,10 @@ impl Parser<'_> {
 	}
 
 	fn next(&mut self) -> Option<Token> {
-		match self.0.next() {
-			Some(Ok(token)) => Some(token),
-			_ => None,
+		if let Some(Ok(token)) = self.0.next() {
+			Some(token)
+		} else {
+			None
 		}
 	}
 
@@ -73,14 +74,17 @@ impl Parser<'_> {
 		let head = self.parse_atom()?;
 
 		match self.next() {
-			Some(Token::Dot) => Ok(Clause::Fact(Fact(head))),
+			Some(token) => match token {
+				Token::Dot => Ok(Clause::Fact(Fact(head))),
 
-			Some(Token::Implies) => Ok(Clause::Rule(Rule {
-				head,
-				body: self.parse_body_atoms()?,
-			})),
+				Token::Implies => Ok(Clause::Rule(Rule {
+					head,
+					body: self.parse_body_atoms()?,
+				})),
 
-			_ => bail!("syntax error, expected clause"),
+				_ => bail!("syntax error, expected . or :-"),
+			},
+			_ => bail!("syntax error, unexpected end of clause"),
 		}
 	}
 
@@ -91,15 +95,18 @@ impl Parser<'_> {
 			atoms.push(self.parse_atom()?);
 
 			match self.next() {
-				Some(Token::Comma) => continue,
+				Some(token) => match token {
+					Token::Comma => continue,
 
-				Some(Token::Dot) => {
-					ensure!(atoms.len() >= 1, "rule has zero body atoms, expected at least one");
+					Token::Dot => {
+						ensure!(atoms.len() >= 1, "rule has zero body atoms, expected at least one");
 
-					return Ok(atoms);
-				}
+						return Ok(atoms);
+					}
 
-				_ => bail!("syntax error, expected comma or dot"),
+					_ => bail!("syntax error, expected , or ."),
+				},
+				_ => bail!("syntax error, unexpected end of body atoms"),
 			}
 		}
 	}
@@ -110,16 +117,19 @@ impl Parser<'_> {
 
 	fn parse_term(&mut self) -> Result<Term> {
 		match self.next() {
-			Some(Token::Functor(ident)) => Ok(Term::Structure(Structure {
-				functor: ident,
-				arguments: self.parse_term_arguments()?,
-			})),
+			Some(token) => match token {
+				Token::Functor(ident) => Ok(Term::Structure(Structure {
+					functor: ident,
+					arguments: self.parse_term_arguments()?,
+				})),
 
-			Some(Token::UppercaseIdentifier(ident)) => Ok(Term::Variable(Variable(ident))),
+				Token::UppercaseIdentifier(ident) => Ok(Term::Variable(Variable(ident))),
 
-			Some(Token::LowercaseIdentifier(ident)) => Ok(Term::Constant(Constant(ident))),
+				Token::LowercaseIdentifier(ident) => Ok(Term::Constant(Constant(ident))),
 
-			_ => bail!("syntax error, expected term"),
+				_ => bail!("syntax error, expected identifier"),
+			},
+			_ => bail!("syntax error, unexpected end of term"),
 		}
 	}
 
@@ -130,15 +140,18 @@ impl Parser<'_> {
 			args.push(self.parse_term()?);
 
 			match self.next() {
-				Some(Token::Comma) => continue,
+				Some(token) => match token {
+					Token::Comma => continue,
 
-				Some(Token::CloseParenthesis) => {
-					ensure!(args.len() >= 1, "structure has zero arguments, expected at least one");
+					Token::CloseParenthesis => {
+						ensure!(args.len() >= 1, "structure has zero arguments, expected at least one");
 
-					return Ok(args);
-				}
+						return Ok(args);
+					}
 
-				_ => bail!("syntax error, expected comma or right parenthesis"),
+					_ => bail!("syntax error, expected , or )"),
+				},
+				_ => bail!("syntax error, unexpected end of arguments"),
 			}
 		}
 	}
