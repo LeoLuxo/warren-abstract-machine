@@ -9,6 +9,28 @@ use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
 --------------------------------------------------------------------------------
 */
 
+pub trait Parsable: Sized {
+	fn parse(source: &str) -> Result<Self>;
+}
+
+impl Parsable for Term {
+	fn parse(source: &str) -> Result<Self> {
+		Parser::new(source).parse_term()
+	}
+}
+
+impl Parsable for Vec<Term> {
+	fn parse(source: &str) -> Result<Self> {
+		Parser::new(source).parse_term_arguments(None)
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 #[derive(Clone, Debug, Logos, Eq, PartialEq)]
 #[logos(skip r"[ \t\f]+")]
 enum Token {
@@ -58,7 +80,7 @@ fn lex_functor(lexer: &mut Lexer<Token>) -> String {
 struct Parser<'source>(Lexer<'source, Token>);
 
 impl Parser<'_> {
-	pub fn new<'source>(source: &'source str) -> Parser<'source> {
+	fn new<'source>(source: &'source str) -> Parser<'source> {
 		Parser(Token::lexer(source))
 	}
 
@@ -70,7 +92,7 @@ impl Parser<'_> {
 		}
 	}
 
-	pub fn parse_clause(&mut self) -> Result<Clause> {
+	fn parse_clause(&mut self) -> Result<Clause> {
 		let head = self.parse_atom()?;
 
 		match self.next() {
@@ -78,7 +100,7 @@ impl Parser<'_> {
 				Token::Dot => Ok(Clause::Fact(Fact(head))),
 
 				Token::Implies => {
-					let body = self.parse_body_atoms()?;
+					let body = self.parse_body_atoms(Some(1))?;
 
 					ensure!(body.len() >= 1, "rule has zero body atoms, expected at least one");
 
@@ -91,7 +113,7 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_body_atoms(&mut self) -> Result<Vec<Atom>> {
+	fn parse_body_atoms(&mut self, minimum: Option<usize>) -> Result<Vec<Atom>> {
 		let mut atoms = Vec::<Atom>::new();
 
 		loop {
@@ -101,7 +123,16 @@ impl Parser<'_> {
 				Some(token) => match token {
 					Token::Comma => continue,
 
-					Token::Dot => return Ok(atoms),
+					Token::Dot => {
+						if let Some(minimum) = minimum {
+							ensure!(
+								atoms.len() >= minimum,
+								"rule has zero body atoms, expected at least {minimum}"
+							);
+						}
+
+						return Ok(atoms);
+					}
 
 					_ => bail!("syntax error, expected , or ."),
 				},
@@ -114,7 +145,7 @@ impl Parser<'_> {
 		if let Some(Token::Functor(functor)) = self.next() {
 			Ok(Atom {
 				functor,
-				terms: self.parse_term_arguments()?,
+				terms: self.parse_term_arguments(Some(1))?,
 			})
 		} else {
 			bail!("syntax error, expected atom functor")
@@ -126,7 +157,7 @@ impl Parser<'_> {
 			Some(token) => match token {
 				Token::Functor(functor) => Ok(Term::Structure(Structure {
 					functor,
-					arguments: self.parse_term_arguments()?,
+					arguments: self.parse_term_arguments(Some(1))?,
 				})),
 
 				Token::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident))),
@@ -139,7 +170,7 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_term_arguments(&mut self) -> Result<Vec<Term>> {
+	fn parse_term_arguments(&mut self, minimum: Option<usize>) -> Result<Vec<Term>> {
 		let mut args = Vec::<Term>::new();
 
 		loop {
@@ -150,7 +181,12 @@ impl Parser<'_> {
 					Token::Comma => continue,
 
 					Token::CloseParenthesis => {
-						ensure!(args.len() >= 1, "structure has zero arguments, expected at least one");
+						if let Some(minimum) = minimum {
+							ensure!(
+								args.len() >= minimum,
+								"structure has zero arguments, expected at least {minimum}"
+							);
+						}
 
 						return Ok(args);
 					}
