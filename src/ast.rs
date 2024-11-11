@@ -36,7 +36,10 @@ pub struct Rule {
 /// - `IsList(X)`
 /// - `append(X, Y, c)`
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Atom(pub Vec<Term>);
+pub struct Atom {
+	pub functor: Identifier,
+	pub terms: Vec<Term>,
+}
 
 /// Represents a Prolog term.
 ///
