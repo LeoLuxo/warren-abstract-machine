@@ -18,8 +18,6 @@ pub trait Language {
 
 type Substitution = ();
 
-type Cell = ();
-
 pub trait Machine<L: Language>: Sized {
 	fn from_program(program: L::Program) -> Self;
 	fn submit_query(query: L::Query) -> Substitution;

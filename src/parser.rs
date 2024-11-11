@@ -93,13 +93,10 @@ impl Parser<'_> {
 			Some(token) => match token {
 				Token::Dot => Ok(Clause::Fact(Fact(head))),
 
-				Token::Implies => {
-					let body = self.parse_body_atoms(Some(1))?;
-
-					ensure!(body.len() >= 1, "rule has zero body atoms, expected at least one");
-
-					Ok(Clause::Rule(Rule { head, body }))
-				}
+				Token::Implies => Ok(Clause::Rule(Rule {
+					head,
+					body: self.parse_body_atoms(Some(1))?,
+				})),
 
 				_ => bail!("syntax error, expected . or :-"),
 			},
@@ -138,7 +135,7 @@ impl Parser<'_> {
 	fn parse_atom(&mut self) -> Result<Atom> {
 		if let Some(Token::Functor(functor)) = self.next() {
 			Ok(Atom {
-				functor,
+				name: functor,
 				terms: self.parse_term_arguments(Some(1))?,
 			})
 		} else {
@@ -150,7 +147,7 @@ impl Parser<'_> {
 		match self.next() {
 			Some(token) => match token {
 				Token::Functor(functor) => Ok(Term::Structure(Structure {
-					functor,
+					name: functor,
 					arguments: self.parse_term_arguments(Some(1))?,
 				})),
 
@@ -212,7 +209,7 @@ mod test {
 		assert_eq!(
 			Parser::new("func(1)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				functor: "func".to_string(),
+				name: "func".to_string(),
 				arguments: vec![Term::Constant(Constant("1".to_string()))]
 			})
 		);
@@ -220,7 +217,7 @@ mod test {
 		assert_eq!(
 			Parser::new("FUNC123(ASD)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				functor: "FUNC123".to_string(),
+				name: "FUNC123".to_string(),
 				arguments: vec![Term::Variable(Variable("ASD".to_string()))]
 			})
 		);
@@ -228,7 +225,7 @@ mod test {
 		assert_eq!(
 			Parser::new("long(1,x,X,y)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				functor: "long".to_string(),
+				name: "long".to_string(),
 				arguments: vec![
 					Term::Constant(Constant("1".to_string())),
 					Term::Constant(Constant("x".to_string())),
@@ -254,7 +251,7 @@ mod test {
 		assert_eq!(
 			Parser::new("edge(1, X).").parse_clause().unwrap(),
 			Clause::Fact(Fact(Atom {
-				functor: "edge".to_string(),
+				name: "edge".to_string(),
 				terms: vec![
 					Term::Constant(Constant("1".to_string())),
 					Term::Variable(Variable("X".to_string()))
@@ -268,7 +265,7 @@ mod test {
 				.unwrap(),
 			Clause::Rule(Rule {
 				head: Atom {
-					functor: "path".to_string(),
+					name: "path".to_string(),
 					terms: vec![
 						Term::Variable(Variable("X".to_string())),
 						Term::Variable(Variable("Z".to_string()))
@@ -276,14 +273,14 @@ mod test {
 				},
 				body: vec![
 					Atom {
-						functor: "edge".to_string(),
+						name: "edge".to_string(),
 						terms: vec![
 							Term::Variable(Variable("X".to_string())),
 							Term::Variable(Variable("Y".to_string()))
 						]
 					},
 					Atom {
-						functor: "edge".to_string(),
+						name: "edge".to_string(),
 						terms: vec![
 							Term::Variable(Variable("Y".to_string())),
 							Term::Variable(Variable("Z".to_string()))

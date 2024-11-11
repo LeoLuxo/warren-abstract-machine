@@ -1,4 +1,7 @@
-use crate::{Cell, Language, Machine, Substitution};
+use crate::{
+	ast::{Functor, Identifier},
+	Language, Machine, Substitution,
+};
 
 use super::L0;
 
@@ -8,8 +11,17 @@ use super::L0;
 --------------------------------------------------------------------------------
 */
 
+type Address = usize;
+
 pub struct M0 {
 	heap: Vec<Cell>,
+	s: Address,
+}
+
+pub enum Cell {
+	STR(Address),
+	REF(Address),
+	Functor(Functor),
 }
 
 impl Machine<L0> for M0 {

@@ -37,7 +37,7 @@ pub struct Rule {
 /// - `append(X, Y, c)`
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Atom {
-	pub functor: Identifier,
+	pub name: Identifier,
 	pub terms: Vec<Term>,
 }
 
@@ -87,6 +87,41 @@ pub struct Variable(pub Identifier);
 /// - `ABC`
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Structure {
-	pub functor: Identifier,
+	pub name: Identifier,
 	pub arguments: Vec<Term>,
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+type Arity = usize;
+
+pub struct Functor {
+	pub name: Identifier,
+	pub arity: Arity,
+}
+
+pub trait GetFunctor {
+	fn get_functor(&self) -> Functor;
+}
+
+impl GetFunctor for Atom {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.name.clone(),
+			arity: self.terms.len(),
+		}
+	}
+}
+
+impl GetFunctor for Structure {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.name.clone(),
+			arity: self.arguments.len(),
+		}
+	}
 }

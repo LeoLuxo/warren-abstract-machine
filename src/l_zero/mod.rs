@@ -1,7 +1,7 @@
+pub mod first_order_term;
 pub mod machine;
-pub mod terms;
 
-use terms::FirstOrderTerm;
+use first_order_term::FirstOrderTerm;
 
 use crate::Language;
 
