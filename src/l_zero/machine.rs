@@ -60,10 +60,17 @@ enum MappingToken {
 	VarRegister(VarRegister),
 }
 
-fn flatten_query_term(
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum FlatteningOrder {
+	BottomUp,
+	TopDown,
+}
+
+fn flatten_term(
 	term: Term,
 	variable_mapping: &mut HashMap<Variable, VarRegister>,
 	next_id: &mut VarRegister,
+	order: FlatteningOrder,
 ) -> (VarRegister, Vec<MappingToken>) {
 	let mut incr_id = || {
 		let id = *next_id;
@@ -96,8 +103,12 @@ fn flatten_query_term(
 			let mut tokens = vec![MappingToken::Functor(id, functor)];
 
 			for subterm in structure.arguments {
-				let (subid, subtokens) = flatten_query_term(subterm, variable_mapping, next_id);
-				tokens = vec![..subtokens, ..tokens, MappingToken::VarRegister(subid)];
+				let (subid, subtokens) = flatten_term(subterm, variable_mapping, next_id, order);
+
+				match order {
+					FlatteningOrder::BottomUp => tokens = vec![..subtokens, ..tokens, MappingToken::VarRegister(subid)],
+					FlatteningOrder::TopDown => tokens = vec![..tokens, MappingToken::VarRegister(subid), ..subtokens],
+				};
 			}
 
 			(id, tokens)
@@ -120,75 +131,66 @@ mod tests {
 	use velcro::vec;
 
 	#[test]
-	fn test_flatten_query_term() -> Result<()> {
+	fn test_flatten_term_bottomup() -> Result<()> {
+		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term(Term::parse_from("c")?, &mut Default::default(), &mut 0),
-			(
-				0,
-				vec![MappingToken::Functor(
-					0,
-					Functor {
-						name: "c".to_string(),
-						arity: 0
-					}
-				)]
-			)
+			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut 0, FlatteningOrder::BottomUp),
+			(0, vec![
+				MappingToken::Functor(0, Functor { name: "c".to_string(), arity: 0 })
+			])
 		);
 
+		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term(
-				Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?,
-				&mut Default::default(),
-				&mut 0
-			),
-			(
-				0,
-				vec![
-					MappingToken::Functor(
-						6,
-						Functor {
-							name: "c".to_string(),
-							arity: 0
-						}
-					),
-					MappingToken::Functor(
-						5,
-						Functor {
-							name: "h".to_string(),
-							arity: 2
-						}
-					),
-					MappingToken::VarRegister(6),
-					MappingToken::VarRegister(3),
-					MappingToken::Functor(
-						4,
-						Functor {
-							name: "f".to_string(),
-							arity: 1
-						}
-					),
-					MappingToken::VarRegister(5),
-					MappingToken::Functor(
-						2,
-						Functor {
-							name: "h".to_string(),
-							arity: 2
-						}
-					),
-					MappingToken::VarRegister(1),
-					MappingToken::VarRegister(3),
-					MappingToken::Functor(
-						0,
-						Functor {
-							name: "p".to_string(),
-							arity: 3
-						}
-					),
-					MappingToken::VarRegister(1),
-					MappingToken::VarRegister(2),
-					MappingToken::VarRegister(4)
-				]
-			)
+			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut 0, FlatteningOrder::BottomUp),
+			(0, vec![
+				MappingToken::Functor(6, Functor { name: "c".to_string(), arity: 0 }),
+				MappingToken::Functor(5, Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::VarRegister(6),
+				MappingToken::VarRegister(3),
+				MappingToken::Functor(4, Functor { name: "f".to_string(), arity: 1 }),
+				MappingToken::VarRegister(5),
+				MappingToken::Functor(2, Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::VarRegister(1),
+				MappingToken::VarRegister(3),
+				MappingToken::Functor(0, Functor { name: "p".to_string(), arity: 3 }),
+				MappingToken::VarRegister(1),
+				MappingToken::VarRegister(2),
+				MappingToken::VarRegister(4)
+			])
+		);
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_flatten_term_topdown() -> Result<()> {
+		#[rustfmt::skip]
+		assert_eq!(
+			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut 0, FlatteningOrder::TopDown),
+			(0, vec![
+				MappingToken::Functor(0, Functor { name: "c".to_string(), arity: 0 })
+			])
+		);
+
+		#[rustfmt::skip]
+		assert_eq!(
+			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut 0, FlatteningOrder::TopDown),
+			(0, vec![
+				MappingToken::Functor(0, Functor { name: "p".to_string(), arity: 3 }),
+				MappingToken::VarRegister(1),
+				MappingToken::VarRegister(2),
+				MappingToken::Functor(2, Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::VarRegister(1),
+				MappingToken::VarRegister(3),
+				MappingToken::VarRegister(4),
+				MappingToken::Functor(4, Functor { name: "f".to_string(), arity: 1 }),
+				MappingToken::VarRegister(5),
+				MappingToken::Functor(5, Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::VarRegister(6),
+				MappingToken::Functor(6, Functor { name: "c".to_string(), arity: 0 }),
+				MappingToken::VarRegister(3)
+			])
 		);
 
 		Ok(())
