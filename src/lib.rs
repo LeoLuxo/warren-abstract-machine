@@ -29,6 +29,7 @@ pub trait Machine<L: Language>: Sized {
 
 	fn submit_query_source(source: &str) -> Result<Substitution> {
 		let query = L::Query::parse_from(source)?;
-		Ok(Self::submit_query(query))
+		Self::submit_query(query);
+  Ok(())
 	}
 }

@@ -74,7 +74,7 @@ fn lex_functor(lexer: &mut Lexer<Token>) -> String {
 struct Parser<'source>(Lexer<'source, Token>);
 
 impl Parser<'_> {
-	fn new<'source>(source: &'source str) -> Parser<'source> {
+	fn new(source: &str) -> Parser<'_> {
 		Parser(Token::lexer(source))
 	}
 

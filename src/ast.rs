@@ -75,7 +75,7 @@ pub struct Constant(pub Identifier);
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Variable(pub Identifier);
 
 /// Represents a Prolog structure.
@@ -99,6 +99,7 @@ pub struct Structure {
 
 type Arity = usize;
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Functor {
 	pub name: Identifier,
 	pub arity: Arity,
@@ -122,6 +123,15 @@ impl GetFunctor for Structure {
 		Functor {
 			name: self.name.clone(),
 			arity: self.arguments.len(),
+		}
+	}
+}
+
+impl GetFunctor for Constant {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.0.clone(),
+			arity: 0,
 		}
 	}
 }
