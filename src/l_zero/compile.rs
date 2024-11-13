@@ -4,12 +4,12 @@ use velcro::vec;
 
 use crate::{
 	ast::{Functor, GetFunctor, Term, Variable},
-	CompilableProgram, CompilableQuery, WAMLanguage,
+	CompilableProgram, CompilableQuery, Language,
 };
 
 use super::{
-	machine::{Instruction, VarRegister},
-	M0,
+	machine::{VarRegister, I0},
+	L0,
 };
 
 /*
@@ -20,8 +20,8 @@ use super::{
 
 pub type VarMapping = HashMap<Variable, VarRegister>;
 
-impl CompilableProgram for <M0 as WAMLanguage>::Program {
-	type Target = Vec<Instruction>;
+impl CompilableProgram<L0> for <L0 as Language>::Program {
+	type Target = Vec<I0>;
 
 	fn compile_as_program(self) -> Self::Target {
 		let (_, tokens) = flatten_term(self.into(), &mut HashMap::new(), &mut 0, FlatteningOrder::TopDown);
@@ -30,8 +30,8 @@ impl CompilableProgram for <M0 as WAMLanguage>::Program {
 	}
 }
 
-impl CompilableQuery for <M0 as WAMLanguage>::Query {
-	type Target = (Vec<Instruction>, VarMapping);
+impl CompilableQuery<L0> for <L0 as Language>::Query {
+	type Target = (Vec<I0>, VarMapping);
 
 	fn compile_as_query(self) -> Self::Target {
 		let mut var_mapping = HashMap::new();
@@ -104,40 +104,40 @@ fn flatten_term(
 	}
 }
 
-fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
+fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<I0> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
 	for (inst, token) in instructions.iter_mut().zip(tokens) {
 		*inst = match token {
-			MappingToken::Functor(var, functor) => Instruction::PutStructure(functor, var),
+			MappingToken::Functor(var, functor) => I0::PutStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
 				encountered.insert(var);
-				Instruction::SetVariable(var)
+				I0::SetVariable(var)
 			}
 
-			MappingToken::VarRegister(var) => Instruction::SetValue(var),
+			MappingToken::VarRegister(var) => I0::SetValue(var),
 		}
 	}
 
 	instructions
 }
 
-fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
+fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<I0> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
 	for (inst, token) in instructions.iter_mut().zip(tokens) {
 		*inst = match token {
-			MappingToken::Functor(var, functor) => Instruction::GetStructure(functor, var),
+			MappingToken::Functor(var, functor) => I0::GetStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
 				encountered.insert(var);
-				Instruction::UnifyVariable(var)
+				I0::UnifyVariable(var)
 			}
 
-			MappingToken::VarRegister(var) => Instruction::UnifyValue(var),
+			MappingToken::VarRegister(var) => I0::UnifyValue(var),
 		}
 	}
 

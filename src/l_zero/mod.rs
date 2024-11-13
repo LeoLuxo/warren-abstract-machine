@@ -1,10 +1,10 @@
 use anyhow::{bail, Result};
-use machine::{Instruction, Machine};
+use machine::{I0, M0};
 
 use crate::{
 	ast::{Constant, Structure, Term},
 	parser::Parsable,
-	CompilableProgram, CompilableQuery, Substitution, WAMLanguage,
+	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution,
 };
 
 /*
@@ -16,14 +16,21 @@ use crate::{
 mod compile;
 mod machine;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct M0 {
-	program: Vec<Instruction>,
-	machine: Machine,
+pub struct L0;
+
+impl Language for L0 {
+	type Program = FirstOrderTerm;
+	type Query = FirstOrderTerm;
+	type Interpreter = L0Interpreter;
 }
 
-impl M0 {
-	fn new(program: Vec<Instruction>) -> Self {
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct L0Interpreter {
+	program: Vec<I0>,
+}
+
+impl L0Interpreter {
+	fn new(program: Vec<I0>) -> Self {
 		Self {
 			program,
 			..Default::default()
@@ -31,19 +38,20 @@ impl M0 {
 	}
 }
 
-impl WAMLanguage for M0 {
-	type Program = FirstOrderTerm;
-	type Query = FirstOrderTerm;
+impl Interpreter for L0Interpreter {
+	type Lang = L0;
 
-	fn from_program(program: Self::Program) -> Self {
+	fn from_program(program: FirstOrderTerm) -> Self {
 		Self::new(program.compile_as_program())
 	}
 
-	fn submit_query(&mut self, query: Self::Query) -> Substitution {
+	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
 		let (query, var_mapping) = query.compile_as_query();
 
-		self.machine.execute(&query);
-		self.machine.execute(&self.program);
+		let mut machine = M0::new();
+
+		machine.execute(&query)?;
+		machine.execute(&self.program)?;
 
 		// let substitution = HashMap::new();
 		for (var, register) in var_mapping.into_iter() {
@@ -51,6 +59,8 @@ impl WAMLanguage for M0 {
 			println!("{:?}: {:?}", var, register);
 		}
 		// substitution
+
+		Ok(())
 	}
 }
 

@@ -14,37 +14,42 @@ pub mod parser;
 // type Substitution = HashMap<Variable, Term>;
 type Substitution = ();
 
-pub trait WAMLanguage: Sized {
+pub trait Language {
 	type Program;
 	type Query;
+	type Interpreter: Interpreter;
+}
 
-	fn from_program(program: Self::Program) -> Self;
-	fn submit_query(&mut self, query: Self::Query) -> Substitution;
+pub trait Interpreter: Sized {
+	type Lang: Language;
+
+	fn submit_query(&mut self, query: <Self::Lang as Language>::Query) -> Result<Substitution>;
+	fn from_program(program: <Self::Lang as Language>::Program) -> Self;
 
 	fn from_program_source(source: &str) -> Result<Self>
 	where
-		Self::Program: Parsable,
+		<Self::Lang as Language>::Program: Parsable,
 	{
-		let program = Self::Program::parse_from(source)?;
+		let program = <Self::Lang as Language>::Program::parse_from(source)?;
 		Ok(Self::from_program(program))
 	}
 
 	fn submit_query_source(&mut self, source: &str) -> Result<Substitution>
 	where
-		Self::Query: Parsable,
+		<Self::Lang as Language>::Query: Parsable,
 	{
-		let query = Self::Query::parse_from(source)?;
-		self.submit_query(query);
+		let query = <Self::Lang as Language>::Query::parse_from(source)?;
+		self.submit_query(query)?;
 		Ok(())
 	}
 }
 
-pub trait CompilableProgram {
+pub trait CompilableProgram<L: Language> {
 	type Target;
 	fn compile_as_program(self) -> Self::Target;
 }
 
-pub trait CompilableQuery {
+pub trait CompilableQuery<L: Language> {
 	type Target;
 	fn compile_as_query(self) -> Self::Target;
 }

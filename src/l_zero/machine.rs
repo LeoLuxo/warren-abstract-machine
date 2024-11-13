@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use crate::ast::Functor;
 
 /*
@@ -10,7 +12,7 @@ pub type Address = usize;
 pub type VarRegister = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Machine {
+pub struct M0 {
 	s: Address,
 	var_registers: Vec<Cell>,
 
@@ -18,17 +20,17 @@ pub struct Machine {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum Cell {
+enum Cell {
 	STR(Address),
 	REF(Address),
 	Functor(Functor),
 
 	#[default]
-	Empty,
+	Uninitialized,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Instruction {
+pub enum I0 {
 	PutStructure(Functor, VarRegister),
 	SetVariable(VarRegister),
 	SetValue(VarRegister),
@@ -37,15 +39,17 @@ pub enum Instruction {
 	UnifyValue(VarRegister),
 }
 
-impl Machine {
-	pub fn new(program: Vec<Instruction>) -> Self {
-		Machine { ..Default::default() }
+impl M0 {
+	pub fn new() -> Self {
+		Default::default()
 	}
 
-	pub fn execute(&mut self, instructions: &[Instruction]) {
+	pub fn execute(&mut self, instructions: &[I0]) -> Result<()> {
 		for i in instructions {
-			self.execute_instruction(i);
+			self.execute_instruction(i)?;
 		}
+
+		Ok(())
 	}
 
 	fn write_register(&mut self, register: VarRegister, cell: Cell) {
@@ -54,18 +58,52 @@ impl Machine {
 	}
 
 	fn read_register(&mut self, register: VarRegister) -> &Cell {
-		self.var_registers.resize(register, Default::default());
-		&self.var_registers[register]
+		let value = self
+			.var_registers
+			.get(register)
+			.expect("Attempted reading an uninitialized register");
+
+		if let Cell::Uninitialized = *value {
+			panic!("Attempted reading an uninitialized register");
+		}
+
+		value
 	}
 
-	fn execute_instruction(&mut self, instruction: &Instruction) {
+	fn h(&self) -> Address {
+		self.heap.len()
+	}
+
+	fn execute_instruction(&mut self, instruction: &I0) -> Result<()> {
 		match instruction {
-			Instruction::PutStructure(functor, _) => todo!(),
-			Instruction::SetVariable(_) => todo!(),
-			Instruction::SetValue(_) => todo!(),
-			Instruction::GetStructure(functor, _) => todo!(),
-			Instruction::UnifyVariable(_) => todo!(),
-			Instruction::UnifyValue(_) => todo!(),
+			I0::PutStructure(functor, reg) => {
+				let pointer = Cell::STR(self.h() + 1);
+
+				self.write_register(*reg, pointer.clone());
+				self.heap.push(pointer);
+				self.heap.push(Cell::Functor(functor.clone()));
+			}
+
+			I0::SetVariable(reg) => {
+				let pointer = Cell::REF(self.h());
+
+				self.write_register(*reg, pointer.clone());
+				self.heap.push(pointer);
+			}
+
+			I0::SetValue(reg) => {
+				let value = self.read_register(*reg).clone();
+
+				self.heap.push(value);
+			}
+
+			I0::GetStructure(functor, reg) => todo!(),
+
+			I0::UnifyVariable(reg) => todo!(),
+
+			I0::UnifyValue(reg) => todo!(),
 		}
+
+		Ok(())
 	}
 }
