@@ -1,11 +1,11 @@
 use crate::{
 	ast::{Functor, GetFunctor, Term, Variable},
-	Language, Machine, Substitution,
+	Machine, Substitution, WAMLanguage,
 };
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use velcro::vec;
 
-use super::L0;
+use super::M0;
 
 /*
 --------------------------------------------------------------------------------
@@ -13,23 +13,25 @@ use super::L0;
 --------------------------------------------------------------------------------
 */
 
-type Address = usize;
-type VarRegister = usize;
+pub type Address = usize;
+pub type VarRegister = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct M0 {
-	heap: Vec<Cell>,
+pub struct Machine {
 	s: Address,
 	var_registers: Vec<Cell>,
+
+	heap: Vec<Cell>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Cell {
-	#[default]
-	Empty,
 	STR(Address),
 	REF(Address),
 	Functor(Functor),
+
+	#[default]
+	Empty,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,157 +44,36 @@ pub enum Instruction {
 	UnifyValue(VarRegister),
 }
 
-impl M0 {}
-
-impl Machine<L0> for M0 {
-	fn from_program(program: <L0 as Language>::Program) -> Self {
-		todo!()
-	}
-
-	fn submit_query(query: <L0 as Language>::Query) -> Substitution {
-		todo!()
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum MappingToken {
-	Functor(VarRegister, Functor),
-	VarRegister(VarRegister),
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum FlatteningOrder {
-	BottomUp,
-	TopDown,
-}
-
-fn flatten_term(
-	term: Term,
-	variable_mapping: &mut HashMap<Variable, VarRegister>,
-	next_id: &mut VarRegister,
-	order: FlatteningOrder,
-) -> (VarRegister, Vec<MappingToken>) {
-	let mut incr_id = || {
-		let id = *next_id;
-		*next_id += 1;
-		id
-	};
-
-	match term {
-		Term::Constant(constant) => {
-			let id = incr_id();
-
-			let tokens = vec![MappingToken::Functor(id, constant.get_functor())];
-
-			(id, tokens)
-		}
-
-		Term::Variable(variable) => {
-			let id = match variable_mapping.entry(variable) {
-				Entry::Occupied(e) => *e.get(),
-				Entry::Vacant(e) => *e.insert(incr_id()),
-			};
-
-			(id, vec![])
-		}
-
-		Term::Structure(structure) => {
-			let functor = structure.get_functor();
-			let id = incr_id();
-
-			let mut tokens = vec![MappingToken::Functor(id, functor)];
-
-			for subterm in structure.arguments {
-				let (subid, subtokens) = flatten_term(subterm, variable_mapping, next_id, order);
-
-				match order {
-					FlatteningOrder::BottomUp => tokens = vec![..subtokens, ..tokens, MappingToken::VarRegister(subid)],
-					FlatteningOrder::TopDown => tokens = vec![..tokens, MappingToken::VarRegister(subid), ..subtokens],
-				};
-			}
-
-			(id, tokens)
+impl Machine {
+	fn new(program: Vec<Instruction>) -> Self {
+		Machine {
+			instructions: program,
+			..Default::default()
 		}
 	}
-}
 
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-#[cfg(test)]
-mod tests {
-	use crate::parser::Parsable;
-
-	use super::*;
-	use anyhow::Result;
-	use velcro::vec;
-
-	#[test]
-	fn test_flatten_term_bottomup() -> Result<()> {
-		#[rustfmt::skip]
-		assert_eq!(
-			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut 0, FlatteningOrder::BottomUp),
-			(0, vec![
-				MappingToken::Functor(0, Functor { name: "c".to_string(), arity: 0 })
-			])
-		);
-
-		#[rustfmt::skip]
-		assert_eq!(
-			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut 0, FlatteningOrder::BottomUp),
-			(0, vec![
-				MappingToken::Functor(6, Functor { name: "c".to_string(), arity: 0 }),
-				MappingToken::Functor(5, Functor { name: "h".to_string(), arity: 2 }),
-				MappingToken::VarRegister(6),
-				MappingToken::VarRegister(3),
-				MappingToken::Functor(4, Functor { name: "f".to_string(), arity: 1 }),
-				MappingToken::VarRegister(5),
-				MappingToken::Functor(2, Functor { name: "h".to_string(), arity: 2 }),
-				MappingToken::VarRegister(1),
-				MappingToken::VarRegister(3),
-				MappingToken::Functor(0, Functor { name: "p".to_string(), arity: 3 }),
-				MappingToken::VarRegister(1),
-				MappingToken::VarRegister(2),
-				MappingToken::VarRegister(4)
-			])
-		);
-
-		Ok(())
+	fn write_register(&mut self, register: VarRegister, cell: Cell) {
+		self.var_registers.resize(register, Default::default());
+		self.var_registers[register] = cell;
 	}
 
-	#[test]
-	fn test_flatten_term_topdown() -> Result<()> {
-		#[rustfmt::skip]
-		assert_eq!(
-			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut 0, FlatteningOrder::TopDown),
-			(0, vec![
-				MappingToken::Functor(0, Functor { name: "c".to_string(), arity: 0 })
-			])
-		);
+	fn read_register(&mut self, register: VarRegister) -> &Cell {
+		self.var_registers.resize(register, Default::default());
+		&self.var_registers[register]
+	}
 
-		#[rustfmt::skip]
-		assert_eq!(
-			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut 0, FlatteningOrder::TopDown),
-			(0, vec![
-				MappingToken::Functor(0, Functor { name: "p".to_string(), arity: 3 }),
-				MappingToken::VarRegister(1),
-				MappingToken::VarRegister(2),
-				MappingToken::Functor(2, Functor { name: "h".to_string(), arity: 2 }),
-				MappingToken::VarRegister(1),
-				MappingToken::VarRegister(3),
-				MappingToken::VarRegister(4),
-				MappingToken::Functor(4, Functor { name: "f".to_string(), arity: 1 }),
-				MappingToken::VarRegister(5),
-				MappingToken::Functor(5, Functor { name: "h".to_string(), arity: 2 }),
-				MappingToken::VarRegister(6),
-				MappingToken::Functor(6, Functor { name: "c".to_string(), arity: 0 }),
-				MappingToken::VarRegister(3)
-			])
-		);
+	fn prepend_instructions(&mut self, instuctions: Vec<Instruction>) {
+		let post = std::mem::replace(&mut self.instructions, instuctions);
+		self.instructions.extend(post);
+	}
 
-		Ok(())
+	fn execute(&mut self) {
+		for i in self.instructions {
+			self.execute_instruction(i.clone());
+		}
+	}
+
+	fn execute_instruction(&mut self, instruction: Instruction) {
+		match instruction {}
 	}
 }
