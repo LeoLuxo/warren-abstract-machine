@@ -23,18 +23,17 @@ pub type VarMapping = HashMap<Variable, VarRegister>;
 impl CompilableProgram for <M0 as WAMLanguage>::Program {
 	type Target = Vec<Instruction>;
 
-	fn compile(self) -> Self::Target {
+	fn compile_program(self) -> Self::Target {
 		let (_, tokens) = flatten_term(self.into(), &mut HashMap::new(), &mut 0, FlatteningOrder::TopDown);
-		let instructions = compile_program_tokens(tokens);
 
-		instructions
+		compile_program_tokens(tokens)
 	}
 }
 
 impl CompilableQuery for <M0 as WAMLanguage>::Query {
 	type Target = (Vec<Instruction>, VarMapping);
 
-	fn compile(self) -> Self::Target {
+	fn compile_query(self) -> Self::Target {
 		let mut variable_mapping = HashMap::new();
 		let (_, tokens) = flatten_term(self.into(), &mut variable_mapping, &mut 0, FlatteningOrder::BottomUp);
 		let instructions = compile_query_tokens(tokens);

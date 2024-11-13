@@ -1,11 +1,4 @@
-use crate::{
-	ast::{Functor, GetFunctor, Term, Variable},
-	Machine, Substitution, WAMLanguage,
-};
-use std::collections::{hash_map::Entry, HashMap, HashSet};
-use velcro::vec;
-
-use super::M0;
+use crate::ast::Functor;
 
 /*
 --------------------------------------------------------------------------------
@@ -45,10 +38,13 @@ pub enum Instruction {
 }
 
 impl Machine {
-	fn new(program: Vec<Instruction>) -> Self {
-		Machine {
-			instructions: program,
-			..Default::default()
+	pub fn new(program: Vec<Instruction>) -> Self {
+		Machine { ..Default::default() }
+	}
+
+	pub fn execute(&mut self, instructions: &[Instruction]) {
+		for i in instructions {
+			self.execute_instruction(i);
 		}
 	}
 
@@ -62,18 +58,14 @@ impl Machine {
 		&self.var_registers[register]
 	}
 
-	fn prepend_instructions(&mut self, instuctions: Vec<Instruction>) {
-		let post = std::mem::replace(&mut self.instructions, instuctions);
-		self.instructions.extend(post);
-	}
-
-	fn execute(&mut self) {
-		for i in self.instructions {
-			self.execute_instruction(i.clone());
+	fn execute_instruction(&mut self, instruction: &Instruction) {
+		match instruction {
+			Instruction::PutStructure(functor, _) => todo!(),
+			Instruction::SetVariable(_) => todo!(),
+			Instruction::SetValue(_) => todo!(),
+			Instruction::GetStructure(functor, _) => todo!(),
+			Instruction::UnifyVariable(_) => todo!(),
+			Instruction::UnifyValue(_) => todo!(),
 		}
-	}
-
-	fn execute_instruction(&mut self, instruction: Instruction) {
-		match instruction {}
 	}
 }

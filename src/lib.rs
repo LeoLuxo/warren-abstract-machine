@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 
 use anyhow::Result;
-use ast::{Term, Variable};
 use parser::Parsable;
 
 /*
@@ -37,16 +35,17 @@ pub trait WAMLanguage: Sized {
 		Self::Query: Parsable,
 	{
 		let query = Self::Query::parse_from(source)?;
-		Ok(self.submit_query(query))
+		self.submit_query(query);
+  Ok(())
 	}
 }
 
 pub trait CompilableProgram {
 	type Target;
-	fn compile(self) -> Self::Target;
+	fn compile_program(self) -> Self::Target;
 }
 
 pub trait CompilableQuery {
 	type Target;
-	fn compile(self) -> Self::Target;
+	fn compile_query(self) -> Self::Target;
 }

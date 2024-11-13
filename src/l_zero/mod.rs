@@ -1,13 +1,10 @@
-use std::collections::HashMap;
-
 use anyhow::{bail, Result};
-use compile::{compile_program_tokens, flatten_term};
 use machine::{Instruction, Machine};
 
 use crate::{
 	ast::{Constant, Structure, Term},
 	parser::Parsable,
-	Machine, WAMLanguage,
+	CompilableProgram, CompilableQuery, Substitution, WAMLanguage,
 };
 
 /*
@@ -39,26 +36,17 @@ impl WAMLanguage for M0 {
 	type Query = FirstOrderTerm;
 
 	fn from_program(program: Self::Program) -> Self {
-		let term = program.into();
-
-		
-
-		M0::new(program)
+		Self::new(program.compile_program())
 	}
 
 	fn submit_query(&mut self, query: Self::Query) -> Substitution {
-		let term = query.into();
+		let (query, var_mapping) = query.compile_query();
 
-		let mut variable_mapping = HashMap::new();
-
-		let (_, tokens) = flatten_term(term, &mut variable_mapping, &mut 0, FlatteningOrder::BottomUp);
-		let query = compile_query_tokens(tokens);
-
-		self.prepend_instructions(query);
-		self.execute();
+		self.machine.execute(&query);
+		self.machine.execute(&self.program);
 
 		// let substitution = HashMap::new();
-		for (var, register) in variable_mapping.into_iter() {
+		for (var, register) in var_mapping.into_iter() {
 			// substitution[&var] = self.read_register(register).clone()
 			println!("{:?}: {:?}", var, register);
 		}
