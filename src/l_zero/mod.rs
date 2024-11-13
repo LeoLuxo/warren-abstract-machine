@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use machine::{I0, M0};
+use machine::{Instruction, M0};
 
 use crate::{
 	ast::{Constant, Structure, Term},
@@ -26,11 +26,11 @@ impl Language for L0 {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
-	program: Vec<I0>,
+	program: Vec<Instruction>,
 }
 
 impl L0Interpreter {
-	fn new(program: Vec<I0>) -> Self {
+	fn new(program: Vec<Instruction>) -> Self {
 		Self {
 			program,
 			..Default::default()

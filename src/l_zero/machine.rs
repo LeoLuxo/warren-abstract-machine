@@ -1,3 +1,5 @@
+use std::default;
+
 use anyhow::Result;
 
 use crate::ast::Functor;
@@ -15,8 +17,16 @@ pub type VarRegister = usize;
 pub struct M0 {
 	s: Address,
 	var_registers: Vec<Cell>,
+	read_write_mode: ReadWrite,
 
 	heap: Vec<Cell>,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+enum ReadWrite {
+	#[default]
+	Read,
+	Write,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -30,7 +40,7 @@ enum Cell {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum I0 {
+pub enum Instruction {
 	PutStructure(Functor, VarRegister),
 	SetVariable(VarRegister),
 	SetValue(VarRegister),
@@ -44,7 +54,7 @@ impl M0 {
 		Default::default()
 	}
 
-	pub fn execute(&mut self, instructions: &[I0]) -> Result<()> {
+	pub fn execute(&mut self, instructions: &[Instruction]) -> Result<()> {
 		for i in instructions {
 			self.execute_instruction(i)?;
 		}
@@ -74,9 +84,9 @@ impl M0 {
 		self.heap.len()
 	}
 
-	fn execute_instruction(&mut self, instruction: &I0) -> Result<()> {
+	fn execute_instruction(&mut self, instruction: &Instruction) -> Result<()> {
 		match instruction {
-			I0::PutStructure(functor, reg) => {
+			Instruction::PutStructure(functor, reg) => {
 				let pointer = Cell::STR(self.h() + 1);
 
 				self.write_register(*reg, pointer.clone());
@@ -84,24 +94,24 @@ impl M0 {
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
-			I0::SetVariable(reg) => {
+			Instruction::SetVariable(reg) => {
 				let pointer = Cell::REF(self.h());
 
 				self.write_register(*reg, pointer.clone());
 				self.heap.push(pointer);
 			}
 
-			I0::SetValue(reg) => {
+			Instruction::SetValue(reg) => {
 				let value = self.read_register(*reg).clone();
 
 				self.heap.push(value);
 			}
 
-			I0::GetStructure(functor, reg) => todo!(),
+			Instruction::GetStructure(functor, reg) => {}
 
-			I0::UnifyVariable(reg) => todo!(),
+			Instruction::UnifyVariable(reg) => {}
 
-			I0::UnifyValue(reg) => todo!(),
+			Instruction::UnifyValue(reg) => {}
 		}
 
 		Ok(())

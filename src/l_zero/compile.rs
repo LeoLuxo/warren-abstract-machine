@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-	machine::{VarRegister, I0},
+	machine::{Instruction, VarRegister},
 	L0,
 };
 
@@ -21,7 +21,7 @@ use super::{
 pub type VarMapping = HashMap<Variable, VarRegister>;
 
 impl CompilableProgram<L0> for <L0 as Language>::Program {
-	type Target = Vec<I0>;
+	type Target = Vec<Instruction>;
 
 	fn compile_as_program(self) -> Self::Target {
 		let (_, tokens) = flatten_term(self.into(), &mut HashMap::new(), &mut 0, FlatteningOrder::TopDown);
@@ -31,7 +31,7 @@ impl CompilableProgram<L0> for <L0 as Language>::Program {
 }
 
 impl CompilableQuery<L0> for <L0 as Language>::Query {
-	type Target = (Vec<I0>, VarMapping);
+	type Target = (Vec<Instruction>, VarMapping);
 
 	fn compile_as_query(self) -> Self::Target {
 		let mut var_mapping = HashMap::new();
@@ -104,40 +104,40 @@ fn flatten_term(
 	}
 }
 
-fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<I0> {
+fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
 	for (inst, token) in instructions.iter_mut().zip(tokens) {
 		*inst = match token {
-			MappingToken::Functor(var, functor) => I0::PutStructure(functor, var),
+			MappingToken::Functor(var, functor) => Instruction::PutStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
 				encountered.insert(var);
-				I0::SetVariable(var)
+				Instruction::SetVariable(var)
 			}
 
-			MappingToken::VarRegister(var) => I0::SetValue(var),
+			MappingToken::VarRegister(var) => Instruction::SetValue(var),
 		}
 	}
 
 	instructions
 }
 
-fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<I0> {
+fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
 	for (inst, token) in instructions.iter_mut().zip(tokens) {
 		*inst = match token {
-			MappingToken::Functor(var, functor) => I0::GetStructure(functor, var),
+			MappingToken::Functor(var, functor) => Instruction::GetStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
 				encountered.insert(var);
-				I0::UnifyVariable(var)
+				Instruction::UnifyVariable(var)
 			}
 
-			MappingToken::VarRegister(var) => I0::UnifyValue(var),
+			MappingToken::VarRegister(var) => Instruction::UnifyValue(var),
 		}
 	}
 
