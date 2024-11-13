@@ -36,11 +36,11 @@ impl WAMLanguage for M0 {
 	type Query = FirstOrderTerm;
 
 	fn from_program(program: Self::Program) -> Self {
-		Self::new(program.compile_program())
+		Self::new(program.compile_as_program())
 	}
 
 	fn submit_query(&mut self, query: Self::Query) -> Substitution {
-		let (query, var_mapping) = query.compile_query();
+		let (query, var_mapping) = query.compile_as_query();
 
 		self.machine.execute(&query);
 		self.machine.execute(&self.program);

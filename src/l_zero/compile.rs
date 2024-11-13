@@ -23,7 +23,7 @@ pub type VarMapping = HashMap<Variable, VarRegister>;
 impl CompilableProgram for <M0 as WAMLanguage>::Program {
 	type Target = Vec<Instruction>;
 
-	fn compile_program(self) -> Self::Target {
+	fn compile_as_program(self) -> Self::Target {
 		let (_, tokens) = flatten_term(self.into(), &mut HashMap::new(), &mut 0, FlatteningOrder::TopDown);
 
 		compile_program_tokens(tokens)
@@ -33,12 +33,12 @@ impl CompilableProgram for <M0 as WAMLanguage>::Program {
 impl CompilableQuery for <M0 as WAMLanguage>::Query {
 	type Target = (Vec<Instruction>, VarMapping);
 
-	fn compile_query(self) -> Self::Target {
-		let mut variable_mapping = HashMap::new();
-		let (_, tokens) = flatten_term(self.into(), &mut variable_mapping, &mut 0, FlatteningOrder::BottomUp);
+	fn compile_as_query(self) -> Self::Target {
+		let mut var_mapping = HashMap::new();
+		let (_, tokens) = flatten_term(self.into(), &mut var_mapping, &mut 0, FlatteningOrder::BottomUp);
 		let instructions = compile_query_tokens(tokens);
 
-		(instructions, variable_mapping)
+		(instructions, var_mapping)
 	}
 }
 
@@ -54,7 +54,7 @@ enum MappingToken {
 	VarRegister(VarRegister),
 }
 
-pub fn flatten_term(
+fn flatten_term(
 	term: Term,
 	variable_mapping: &mut VarMapping,
 	next_id: &mut VarRegister,
@@ -124,7 +124,7 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
 	instructions
 }
 
-pub fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
+fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<Instruction> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 

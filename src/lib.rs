@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use parser::Parsable;
 
@@ -36,16 +35,16 @@ pub trait WAMLanguage: Sized {
 	{
 		let query = Self::Query::parse_from(source)?;
 		self.submit_query(query);
-  Ok(())
+		Ok(())
 	}
 }
 
 pub trait CompilableProgram {
 	type Target;
-	fn compile_program(self) -> Self::Target;
+	fn compile_as_program(self) -> Self::Target;
 }
 
 pub trait CompilableQuery {
 	type Target;
-	fn compile_query(self) -> Self::Target;
+	fn compile_as_query(self) -> Self::Target;
 }
