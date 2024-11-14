@@ -1,11 +1,12 @@
 use std::{
 	collections::HashMap,
+	fmt::{self, Display, Formatter},
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
 use anyhow::{bail, Result};
 
-use crate::{ast::Functor, newtype, VarRegister};
+use crate::{ast::Functor, VarRegister};
 
 use super::L0Instruction;
 
@@ -26,24 +27,44 @@ enum Address {
 #[rustfmt::skip] impl PartialEq<HeapAddress> for Address { fn eq(&self, other: &HeapAddress) -> bool { match self  { Address::Heap(heap_address)     => heap_address == other, _ => false, } } }
 #[rustfmt::skip] impl PartialEq<Address> for HeapAddress { fn eq(&self, other: &Address)     -> bool { match other { Address::Heap(heap_address)     => heap_address == self,  _ => false, } } }
 
-#[rustfmt::skip] impl Add<usize> for Address { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register + rhs), Address::Heap(heap_address) => Address::Heap(heap_address + rhs), } } }
-#[rustfmt::skip] impl Sub<usize> for Address { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register - rhs), Address::Heap(heap_address) => Address::Heap(heap_address - rhs), } } }
-#[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
-#[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
+// #[rustfmt::skip] impl Add<usize> for Address { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register + rhs), Address::Heap(heap_address) => Address::Heap(heap_address + rhs), } } }
+// #[rustfmt::skip] impl Sub<usize> for Address { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register - rhs), Address::Heap(heap_address) => Address::Heap(heap_address - rhs), } } }
+// #[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
+// #[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct HeapAddress(usize);
-newtype!(HeapAddress { usize });
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Cell {
-	Str(HeapAddress),
 	Ref(HeapAddress),
+	Str(HeapAddress),
 	Functor(Functor),
+}
+
+impl Display for Cell {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.pad(&match self {
+			Cell::Ref(heap_address) => format!("<REF {heap_address}>"),
+			Cell::Str(heap_address) => format!("<STR {heap_address}>"),
+			Cell::Functor(functor) => format!("<{functor}>"),
+		})
+	}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct VarRegisters(HashMap<VarRegister, Cell>);
+newtype!(VarRegisters | HashMap<VarRegister, Cell> | Display);
+
+// impl Display for VarRegisters {
+// 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+// 		f.pad(&match self {
+// 			Cell::Ref(heap_address) => format!("<REF {heap_address}>"),
+// 			Cell::Str(heap_address) => format!("<STR {heap_address}>"),
+// 			Cell::Functor(functor) => format!("<{functor}>"),
+// 		})
+// 	}
+// }
 
 impl Index<VarRegister> for VarRegisters {
 	type Output = Cell;
@@ -186,6 +207,8 @@ impl M0 {
 	}
 
 	fn execute_instruction(&mut self, instruction: &L0Instruction) -> Result<()> {
+		println!("{}", instruction);
+
 		match instruction {
 			L0Instruction::PutStructure(functor, reg) => {
 				let pointer = Cell::Str(self.heap.top() + 1);

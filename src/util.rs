@@ -1,17 +1,29 @@
-pub trait Successor: Clone {
-	fn next(&self) -> Self;
 
-	fn incr(&mut self) -> Self {
-		let old = self.clone();
-		*self = self.next();
-		old
-	}
-}
 
 #[macro_export]
 macro_rules! newtype {
-	($outer:ty{Vec<$elem:ty>}) => {
-		newtype!(generalized $outer{Vec<$elem>});
+	// ($outer:ty: $inner:tt}: Display) => {
+	// 	newtype!($outer{$inner});
+
+	// 	impl std::fmt::Display for $outer {
+	// 		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	// 			std::fmt::Debug::fmt(&self.0, f)
+	// 		}
+	// 	}
+	// };
+
+	($outer:ty | $inner:ty | Display) => {
+		newtype!($outer: $inner);
+
+		impl std::fmt::Display for $outer {
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+				std::fmt::Debug::fmt(&self.0, f)
+			}
+		}
+	};
+
+	($outer:ty: Vec<$elem:ty>) => {
+		newtype!(end $outer{Vec<$elem>});
 
 		impl $outer {
 			pub fn new() -> Self {
@@ -97,8 +109,8 @@ macro_rules! newtype {
 
 
 
-	($outer:ty{String}) => {
-		newtype!(generalized+display $outer{String});
+	($outer:ty: String) => {
+		newtype!(end $outer{String});
 
 		impl From<&str> for $outer {
 			fn from(value: &str) -> Self {
@@ -109,60 +121,60 @@ macro_rules! newtype {
 
 
 
-	($outer:ty{u8}) => {
+	($outer:ty: u8) => {
 		newtype!($outer{uint u8});
 	};
 
-	($outer:ty{u16}) => {
+	($outer:ty: u16) => {
 		newtype!($outer{uint u16});
 	};
 
-	($outer:ty{u32}) => {
+	($outer:ty: u32) => {
 		newtype!($outer{uint u32});
 	};
 
-	($outer:ty{u64}) => {
+	($outer:ty: u64) => {
 		newtype!($outer{uint u64});
 	};
 
-	($outer:ty{usize}) => {
+	($outer:ty: usize) => {
 		newtype!($outer{uint usize});
 	};
 
-	($outer:ty{i8}) => {
+	($outer:ty: i8) => {
 		newtype!($outer{sint i8});
 	};
 
-	($outer:ty{i16}) => {
+	($outer:ty: i16) => {
 		newtype!($outer{sint i16});
 	};
 
-	($outer:ty{i32}) => {
+	($outer:ty: i32) => {
 		newtype!($outer{sint i32});
 	};
 
-	($outer:ty{i64}) => {
+	($outer:ty: i64) => {
 		newtype!($outer{sint i64});
 	};
 
-	($outer:ty{isize}) => {
+	($outer:ty: isize) => {
 		newtype!($outer{sint isize});
 	};
 
 
 
-	($outer:ty{uint $i:ty}) => {
+	($outer:ty: uint $i:ty) => {
 		newtype!($outer{int $i});
 	};
 
-	($outer:ty{sint $i:ty}) => {
+	($outer:ty: sint $i:ty) => {
 		newtype!($outer{int $i});
 	};
 
 
 
-	($outer:ty{int $i:ty}) => {
-		newtype!(generalized+display $outer{$i});
+	($outer:ty: int $i:ty) => {
+		newtype!(end $outer{$i});
 
 		#[rustfmt::skip] impl PartialEq<$i> for $outer { fn eq(&self, other: &$i)     -> bool { self.0 == *other } }
 		#[rustfmt::skip] impl PartialEq<$outer> for $i { fn eq(&self, other: &$outer) -> bool { other.0 == *self } }
@@ -214,25 +226,13 @@ macro_rules! newtype {
 
 
 
-	($outer:ty{$inner:ty}) => {
-		newtype!(generalized $outer{$inner});
+	($outer:ty: $inner:ty) => {
+		newtype!(end $outer: $inner);
 	};
 
 
 
-	(generalized+display $outer:ty{$inner:ty}) => {
-		newtype!(generalized $outer{$inner});
-
-		impl std::fmt::Display for $outer {
-			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-				std::fmt::Display::fmt(&self.0, f)
-			}
-		}
-	};
-
-
-
-	(generalized $outer:ty{$inner:ty}) => {
+	(end $outer:ty: $inner:ty) => {
 		impl From<$inner> for $outer {
 			fn from(value: $inner) -> Self {
 				Self(value)

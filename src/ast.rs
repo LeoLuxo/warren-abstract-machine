@@ -11,12 +11,12 @@ use crate::newtype;
 /// A string identifier, used for functors and variables
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Identifier(String);
-newtype!(Identifier { String });
+newtype!(Identifier { String }: Display);
 
 /// The arity of a functor
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Arity(usize);
-newtype!(Arity { usize });
+newtype!(Arity { usize }: Display);
 
 /// A functor f/n
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
