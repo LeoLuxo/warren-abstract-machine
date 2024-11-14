@@ -1,8 +1,58 @@
 use std::fmt::{self, Debug, Display};
 
-use crate::sequence;
+use crate::{newtype, util::NewTypeVec};
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
 pub type Identifier = String;
+pub type Arity = usize;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Functor {
+	pub name: Identifier,
+	pub arity: Arity,
+}
+
+impl Display for Functor {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&format!("{}/{}", self.name, self.arity))
+	}
+}
+
+pub trait GetFunctor {
+	fn get_functor(&self) -> Functor;
+}
+
+impl GetFunctor for Atom {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.name.clone(),
+			arity: self.terms.len(),
+		}
+	}
+}
+
+impl GetFunctor for Structure {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.name.clone(),
+			arity: self.arguments.len(),
+		}
+	}
+}
+
+impl GetFunctor for Constant {
+	fn get_functor(&self) -> Functor {
+		Functor {
+			name: self.0.clone(),
+			arity: 0,
+		}
+	}
+}
 
 /// Represents a Prolog clause, which is either a fact or a rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,7 +108,7 @@ impl Display for Rule {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Atoms(Vec<Atom>);
 
-sequence!(Atoms{Vec<Atom>});
+newtype!(Atoms{Vec<Atom>});
 
 /// Represents a Prolog atom.
 ///
@@ -82,7 +132,7 @@ impl Display for Atom {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Terms(Vec<Term>);
 
-sequence!(Terms{Vec<Term>});
+newtype!(Terms{Vec<Term>});
 
 /// Represents a Prolog term.
 ///
@@ -118,7 +168,7 @@ impl Display for Term {
 /// - `0`
 /// - `1`
 /// - `nil`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Constant(pub Identifier);
 
 impl Display for Constant {
@@ -159,45 +209,6 @@ pub struct Structure {
 impl Display for Structure {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&format!("{}({})", self.name, self.arguments))
-	}
-}
-
-type Arity = usize;
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Functor {
-	pub name: Identifier,
-	pub arity: Arity,
-}
-
-pub trait GetFunctor {
-	fn get_functor(&self) -> Functor;
-}
-
-impl GetFunctor for Atom {
-	fn get_functor(&self) -> Functor {
-		Functor {
-			name: self.name.clone(),
-			arity: self.terms.len(),
-		}
-	}
-}
-
-impl GetFunctor for Structure {
-	fn get_functor(&self) -> Functor {
-		Functor {
-			name: self.name.clone(),
-			arity: self.arguments.len(),
-		}
-	}
-}
-
-impl GetFunctor for Constant {
-	fn get_functor(&self) -> Functor {
-		Functor {
-			name: self.0.clone(),
-			arity: 0,
-		}
 	}
 }
 
