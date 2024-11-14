@@ -1,3 +1,7 @@
+use std::fmt::{self, Debug, Display};
+
+use crate::sequence;
+
 pub type Identifier = String;
 
 /// Represents a Prolog clause, which is either a fact or a rule.
@@ -5,6 +9,15 @@ pub type Identifier = String;
 pub enum Clause {
 	Fact(Fact),
 	Rule(Rule),
+}
+
+impl Display for Clause {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Clause::Fact(fact) => Display::fmt(&fact, f),
+			Clause::Rule(rule) => Display::fmt(&rule, f),
+		}
+	}
 }
 
 /// Represents a Prolog fact.
@@ -16,6 +29,12 @@ pub enum Clause {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fact(pub Atom);
 
+impl Display for Fact {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&format!("{}.", self.0))
+	}
+}
+
 /// Represents a Prolog rule.
 ///
 /// A rule is made up of a head atom and 1 or more body atoms.
@@ -26,8 +45,20 @@ pub struct Fact(pub Atom);
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Rule {
 	pub head: Atom,
-	pub body: Vec<Atom>,
+	pub body: Atoms,
 }
+
+impl Display for Rule {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&format!("{} :- {}.", self.head, self.body))
+	}
+}
+
+/// Represents a sequence of atoms.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Atoms(Vec<Atom>);
+
+sequence!(Atoms{Vec<Atom>});
 
 /// Represents a Prolog atom.
 ///
@@ -38,8 +69,20 @@ pub struct Rule {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Atom {
 	pub name: Identifier,
-	pub terms: Vec<Term>,
+	pub terms: Terms,
 }
+
+impl Display for Atom {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&format!("{}({})", self.name, self.terms))
+	}
+}
+
+/// Represents a sequence of terms.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Terms(Vec<Term>);
+
+sequence!(Terms{Vec<Term>});
 
 /// Represents a Prolog term.
 ///
@@ -58,6 +101,16 @@ pub enum Term {
 	Structure(Structure),
 }
 
+impl Display for Term {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Term::Constant(constant) => Display::fmt(&constant, f),
+			Term::Variable(variable) => Display::fmt(&variable, f),
+			Term::Structure(structure) => Display::fmt(&structure, f),
+		}
+	}
+}
+
 /// Represents a Prolog constant.
 ///
 /// Examples:
@@ -67,6 +120,12 @@ pub enum Term {
 /// - `nil`
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Constant(pub Identifier);
+
+impl Display for Constant {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		Display::fmt(&self.0, f)
+	}
+}
 
 /// Represents a Prolog variable.
 ///
@@ -78,6 +137,12 @@ pub struct Constant(pub Identifier);
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Variable(pub Identifier);
 
+impl Display for Variable {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		Display::fmt(&self.0, f)
+	}
+}
+
 /// Represents a Prolog structure.
 ///
 /// Examples:
@@ -88,7 +153,13 @@ pub struct Variable(pub Identifier);
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Structure {
 	pub name: Identifier,
-	pub arguments: Vec<Term>,
+	pub arguments: Terms,
+}
+
+impl Display for Structure {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&format!("{}({})", self.name, self.arguments))
+	}
 }
 
 /*

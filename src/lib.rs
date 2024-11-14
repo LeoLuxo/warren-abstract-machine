@@ -6,6 +6,7 @@ use std::{
 use anyhow::Result;
 use ast::Variable;
 use parser::Parsable;
+use util::Successor;
 
 /*
 --------------------------------------------------------------------------------
@@ -16,6 +17,7 @@ use parser::Parsable;
 pub mod ast;
 pub mod l_zero;
 pub mod parser;
+pub mod util;
 
 // type Substitution = HashMap<Variable, Term>;
 type Substitution = ();
@@ -79,20 +81,4 @@ pub trait CompilableProgram<L: Language> {
 
 pub trait CompilableQuery<L: Language> {
 	fn compile_as_query(self) -> (Vec<L::InstructionSet>, VarMapping);
-}
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-pub trait Successor: Clone {
-	fn next(&self) -> Self;
-
-	fn incr(&mut self) -> Self {
-		let old = self.clone();
-		*self = self.next();
-		old
-	}
 }

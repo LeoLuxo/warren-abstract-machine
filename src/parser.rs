@@ -1,7 +1,7 @@
 use anyhow::{bail, ensure, Result};
 use logos::{Lexer, Logos};
 
-use crate::ast::{Atom, Clause, Constant, Fact, Rule, Structure, Term, Variable};
+use crate::ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Terms, Variable};
 
 /*
 --------------------------------------------------------------------------------
@@ -104,8 +104,8 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_body_atoms(&mut self, minimum: Option<usize>) -> Result<Vec<Atom>> {
-		let mut atoms = Vec::<Atom>::new();
+	fn parse_body_atoms(&mut self, minimum: Option<usize>) -> Result<Atoms> {
+		let mut atoms = Atoms::new();
 
 		loop {
 			atoms.push(self.parse_atom()?);
@@ -161,8 +161,8 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_term_arguments(&mut self, minimum: Option<usize>) -> Result<Vec<Term>> {
-		let mut args = Vec::<Term>::new();
+	fn parse_term_arguments(&mut self, minimum: Option<usize>) -> Result<Terms> {
+		let mut args = Terms::new();
 
 		loop {
 			args.push(self.parse_term()?);
@@ -210,7 +210,7 @@ mod test {
 			Parser::new("func(1)").parse_term().unwrap(),
 			Term::Structure(Structure {
 				name: "func".to_string(),
-				arguments: vec![Term::Constant(Constant("1".to_string()))]
+				arguments: vec![Term::Constant(Constant("1".to_string()))].into()
 			})
 		);
 
@@ -218,7 +218,7 @@ mod test {
 			Parser::new("FUNC123(ASD)").parse_term().unwrap(),
 			Term::Structure(Structure {
 				name: "FUNC123".to_string(),
-				arguments: vec![Term::Variable(Variable("ASD".to_string()))]
+				arguments: vec![Term::Variable(Variable("ASD".to_string()))].into()
 			})
 		);
 
@@ -232,6 +232,7 @@ mod test {
 					Term::Variable(Variable("X".to_string())),
 					Term::Constant(Constant("y".to_string())),
 				]
+				.into()
 			})
 		);
 	}
@@ -256,6 +257,7 @@ mod test {
 					Term::Constant(Constant("1".to_string())),
 					Term::Variable(Variable("X".to_string()))
 				]
+				.into()
 			}))
 		);
 
@@ -270,6 +272,7 @@ mod test {
 						Term::Variable(Variable("X".to_string())),
 						Term::Variable(Variable("Z".to_string()))
 					]
+					.into()
 				},
 				body: vec![
 					Atom {
@@ -278,6 +281,7 @@ mod test {
 							Term::Variable(Variable("X".to_string())),
 							Term::Variable(Variable("Y".to_string()))
 						]
+						.into()
 					},
 					Atom {
 						name: "edge".to_string(),
@@ -285,8 +289,10 @@ mod test {
 							Term::Variable(Variable("Y".to_string())),
 							Term::Variable(Variable("Z".to_string()))
 						]
+						.into()
 					}
 				]
+				.into()
 			})
 		);
 	}
