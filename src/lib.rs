@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use anyhow::Result;
 use parser::Parsable;
 
@@ -14,9 +16,27 @@ pub mod parser;
 // type Substitution = HashMap<Variable, Term>;
 type Substitution = ();
 
-pub trait Language {
-	type Program;
-	type Query;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct VarRegister(usize);
+
+impl Default for VarRegister {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
+impl Successor for VarRegister {
+	fn next(&self) -> Self {
+		Self(self.0 + 1)
+	}
+}
+
+#[rustfmt::skip] impl Add<usize> for VarRegister { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+
+pub trait Language: Sized {
+	type Program: CompilableProgram<Self>;
+	type Query: CompilableQuery<Self>;
+	type InstructionSet;
 	type Interpreter: Interpreter;
 }
 
@@ -45,11 +65,27 @@ pub trait Interpreter: Sized {
 }
 
 pub trait CompilableProgram<L: Language> {
-	type Target;
-	fn compile_as_program(self) -> Self::Target;
+	type SideEffects;
+	fn compile_as_program(self, side_effects: &mut Self::SideEffects) -> Vec<L::InstructionSet>;
 }
 
 pub trait CompilableQuery<L: Language> {
-	type Target;
-	fn compile_as_query(self) -> Self::Target;
+	type SideEffects;
+	fn compile_as_query(self, side_effects: &mut Self::SideEffects) -> Vec<L::InstructionSet>;
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+pub trait Successor: Clone {
+	fn next(&self) -> Self;
+
+	fn incr(&mut self) -> Self {
+		let old = self.clone();
+		*self = self.next();
+		old
+	}
 }

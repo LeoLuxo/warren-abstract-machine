@@ -1,8 +1,13 @@
-use std::default;
+use std::{
+	collections::HashMap,
+	ops::{Add, Index, IndexMut},
+};
 
 use anyhow::{bail, Result};
 
-use crate::ast::Functor;
+use crate::{ast::Functor, VarRegister};
+
+use super::L0Instruction;
 
 /*
 --------------------------------------------------------------------------------
@@ -10,39 +15,107 @@ use crate::ast::Functor;
 --------------------------------------------------------------------------------
 */
 
-pub type Address = usize;
-pub type VarRegister = usize;
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct M0 {
-	s: Address,
-	var_registers: Vec<Option<Cell>>,
-	readwrite_mode: Option<ReadWrite>,
-
-	heap: Vec<Cell>,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Address {
+	Register(VarRegister),
+	Heap(HeapAddress),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[rustfmt::skip] impl PartialEq<VarRegister> for Address { fn eq(&self, other: &VarRegister) -> bool { match self  { Address::Register(var_register) => var_register == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<Address> for VarRegister { fn eq(&self, other: &Address)     -> bool { match other { Address::Register(var_register) => var_register == self,  _ => false, } } }
+#[rustfmt::skip] impl PartialEq<HeapAddress> for Address { fn eq(&self, other: &HeapAddress) -> bool { match self  { Address::Heap(heap_address)     => heap_address == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<Address> for HeapAddress { fn eq(&self, other: &Address)     -> bool { match other { Address::Heap(heap_address)     => heap_address == self,  _ => false, } } }
+
+impl Add<usize> for Address {
+	type Output = Self;
+	fn add(self, rhs: usize) -> Self::Output {
+		match self {
+			Address::Register(var_register) => Address::Register(var_register + rhs),
+			Address::Heap(heap_address) => Address::Heap(heap_address + rhs),
+		}
+	}
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+struct HeapAddress(usize);
+
+#[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Cell {
+	STR(HeapAddress),
+	REF(HeapAddress),
+	Functor(Functor),
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct VarRegisters(HashMap<VarRegister, Cell>);
+
+impl Index<VarRegister> for VarRegisters {
+	type Output = Cell;
+
+	fn index(&self, index: VarRegister) -> &Self::Output {
+		self.0.get(&index).expect("Attempted reading an uninitialized register")
+	}
+}
+
+impl IndexMut<VarRegister> for VarRegisters {
+	fn index_mut(&mut self, index: VarRegister) -> &mut Self::Output {
+		self.0
+			.get_mut(&index)
+			.expect("Attempted accessing an uninitialized register")
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct Heap(Vec<Cell>);
+
+impl Heap {
+	pub fn push(&mut self, value: Cell) {
+		self.0.push(value);
+	}
+
+	pub fn top(&self) -> HeapAddress {
+		HeapAddress(self.0.len())
+	}
+}
+
+impl Index<HeapAddress> for Heap {
+	type Output = Cell;
+
+	fn index(&self, index: HeapAddress) -> &Self::Output {
+		self.0.get(index.0).expect("Attempted reading an invalid heap address")
+	}
+}
+
+impl IndexMut<HeapAddress> for Heap {
+	fn index_mut(&mut self, index: HeapAddress) -> &mut Self::Output {
+		self.0
+			.get_mut(index.0)
+			.expect("Attempted accessing an invalid heap address")
+	}
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 enum ReadWrite {
+	#[default]
 	Read,
 	Write,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum Cell {
-	STR(Address),
-	REF(Address),
-	Functor(Functor),
-}
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Instruction {
-	PutStructure(Functor, VarRegister),
-	SetVariable(VarRegister),
-	SetValue(VarRegister),
-	GetStructure(Functor, VarRegister),
-	UnifyVariable(VarRegister),
-	UnifyValue(VarRegister),
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct M0 {
+	s: HeapAddress,
+	readwrite_mode: ReadWrite,
+
+	var_registers: VarRegisters,
+	heap: Heap,
 }
 
 impl M0 {
@@ -50,7 +123,7 @@ impl M0 {
 		Default::default()
 	}
 
-	pub fn execute(&mut self, instructions: &[Instruction]) -> Result<()> {
+	pub fn execute(&mut self, instructions: &[L0Instruction]) -> Result<()> {
 		for i in instructions {
 			self.execute_instruction(i)?;
 		}
@@ -58,54 +131,28 @@ impl M0 {
 		Ok(())
 	}
 
-	fn write_register(&mut self, register: VarRegister, cell: Cell) {
-		self.var_registers.resize(register, Default::default());
-		self.var_registers[register] = Some(cell);
-	}
-
-	fn read_register(&self, register: VarRegister) -> &Cell {
-		if let Some(Some(value)) = self.var_registers.get(register) {
-			value
-		} else {
-			panic!("Attempted to read an uninitialized register");
+	fn read_store(&self, address: Address) -> &Cell {
+		match address {
+			Address::Register(var_register) => &self.var_registers[var_register],
+			Address::Heap(heap_address) => &self.heap[heap_address],
 		}
 	}
 
-	fn set_readwrite(&mut self, mode: ReadWrite) {
-		self.readwrite_mode = Some(mode);
-	}
-
-	fn get_readwrite(&self) -> ReadWrite {
-		self.readwrite_mode
-			.expect("Attempted to get uninitialized readwrite_mode")
-	}
-
-	fn h(&self) -> Address {
-		self.heap.len()
-	}
-
 	fn deref(&self, address: Address) -> Address {
-		let Some(cell) = self.heap.get(address) else {
-			panic!("Attempted to deref invalid heap address")
-		};
-
-		match cell {
-			Cell::REF(a) if *a != address => self.deref(*a),
+		match self.read_store(address) {
+			Cell::REF(a) if address != *a => self.deref(Address::Heap(*a)),
 			_ => address,
 		}
 	}
 
 	fn bind(&mut self, address1: Address, address2: Address) -> Result<()> {
-		let (Some(cell1), Some(cell2)) = (self.heap.get(address1), self.heap.get(address1)) else {
-			panic!("Attempted to deref invalid heap address")
+		let (dest, src) = match (self.read_store(address1), self.read_store(address2)) {
+			(Cell::REF(a), c) if *a == address1 => (*a, c),
+			(c, Cell::REF(a)) if *a == address2 => (*a, c),
+			_ => bail!("Unification error"),
 		};
 
-		match (cell1, cell2) {
-			(Cell::REF(a), c2) if *a == address1 => self.heap[address1] = c2.clone(),
-			(c1, Cell::REF(a)) if *a == address2 => self.heap[address2] = c1.clone(),
-
-			_ => bail!("Unification error"),
-		}
+		self.heap[dest] = src.clone();
 
 		Ok(())
 	}
@@ -118,9 +165,8 @@ impl M0 {
 			return Ok(());
 		}
 
-		// deref already took care of checking the bounds
-		let c1 = &self.heap[d1];
-		let c2 = &self.heap[d2];
+		let c1 = self.read_store(d1);
+		let c2 = self.read_store(d2);
 
 		match (c1, c2) {
 			(Cell::REF(_), _) | (_, Cell::REF(_)) => {
@@ -128,7 +174,7 @@ impl M0 {
 			}
 
 			(Cell::STR(str1), Cell::STR(str2)) => {
-				self.unify(*str1, *str2)?;
+				self.unify(Address::Heap(*str1), Address::Heap(*str2))?;
 			}
 
 			(Cell::Functor(Functor { name: f1, arity: n1 }), Cell::Functor(Functor { name: f2, arity: n2 }))
@@ -145,34 +191,36 @@ impl M0 {
 		Ok(())
 	}
 
-	fn execute_instruction(&mut self, instruction: &Instruction) -> Result<()> {
+	fn execute_instruction(&mut self, instruction: &L0Instruction) -> Result<()> {
 		match instruction {
-			Instruction::PutStructure(functor, reg) => {
-				let pointer = Cell::STR(self.h() + 1);
+			L0Instruction::PutStructure(functor, reg) => {
+				let pointer = Cell::STR(self.heap.top() + 1);
 
-				self.write_register(*reg, pointer.clone());
+				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
-			Instruction::SetVariable(reg) => {
-				let pointer = Cell::REF(self.h());
+			L0Instruction::SetVariable(reg) => {
+				let pointer = Cell::REF(self.heap.top());
 
-				self.write_register(*reg, pointer.clone());
+				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 			}
 
-			Instruction::SetValue(reg) => {
-				let value = self.read_register(*reg).clone();
+			L0Instruction::SetValue(reg) => {
+				let value = self.var_registers[*reg].clone();
 
 				self.heap.push(value);
 			}
 
-			Instruction::GetStructure(functor, reg) => {}
+			L0Instruction::GetStructure(functor, reg) => {
+				// let a = deref(reg);
+			}
 
-			Instruction::UnifyVariable(reg) => {}
+			L0Instruction::UnifyVariable(reg) => {}
 
-			Instruction::UnifyValue(reg) => {}
+			L0Instruction::UnifyValue(reg) => {}
 		}
 
 		Ok(())

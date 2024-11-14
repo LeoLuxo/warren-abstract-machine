@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Result};
-use machine::{Instruction, M0};
+use machine::M0;
 
 use crate::{
-	ast::{Constant, Structure, Term},
+	ast::{Constant, Functor, Structure, Term},
 	parser::Parsable,
-	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution,
+	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution, VarRegister,
 };
 
 /*
@@ -13,7 +15,7 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
-mod compile;
+mod compiler;
 mod machine;
 
 pub struct L0;
@@ -21,16 +23,27 @@ pub struct L0;
 impl Language for L0 {
 	type Program = FirstOrderTerm;
 	type Query = FirstOrderTerm;
+	type InstructionSet = L0Instruction;
 	type Interpreter = L0Interpreter;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum L0Instruction {
+	PutStructure(Functor, VarRegister),
+	SetVariable(VarRegister),
+	SetValue(VarRegister),
+	GetStructure(Functor, VarRegister),
+	UnifyVariable(VarRegister),
+	UnifyValue(VarRegister),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
-	program: Vec<Instruction>,
+	program: Vec<L0Instruction>,
 }
 
 impl L0Interpreter {
-	fn new(program: Vec<Instruction>) -> Self {
+	fn new(program: Vec<L0Instruction>) -> Self {
 		Self {
 			program,
 			..Default::default()
@@ -42,11 +55,12 @@ impl Interpreter for L0Interpreter {
 	type Lang = L0;
 
 	fn from_program(program: FirstOrderTerm) -> Self {
-		Self::new(program.compile_as_program())
+		Self::new(program.compile_as_program(&mut ()))
 	}
 
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
-		let (query, var_mapping) = query.compile_as_query();
+		let mut var_mapping = HashMap::new();
+		let query = query.compile_as_query(&mut var_mapping);
 
 		let mut machine = M0::new();
 
