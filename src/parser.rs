@@ -101,7 +101,7 @@ impl Parser<'_> {
 
 				Token::Implies => Ok(Clause::Rule(Rule {
 					head,
-					body: self.parse_body_atoms(Some(1))?,
+					body: self.parse_atoms(Some(1))?,
 				})),
 
 				_ => bail!("syntax error, expected . or :-"),
@@ -110,7 +110,7 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_body_atoms(&mut self, minimum: Option<usize>) -> Result<Atoms> {
+	fn parse_atoms(&mut self, minimum: Option<usize>) -> Result<Atoms> {
 		let mut atoms = Atoms::new();
 
 		loop {
@@ -142,7 +142,7 @@ impl Parser<'_> {
 		if let Some(Token::Functor(functor)) = self.next() {
 			Ok(Atom {
 				name: functor,
-				terms: self.parse_term_arguments(Some(1))?,
+				terms: self.parse_terms(Some(1))?,
 			})
 		} else {
 			bail!("syntax error, expected atom functor")
@@ -154,7 +154,7 @@ impl Parser<'_> {
 			Some(token) => match token {
 				Token::Functor(functor) => Ok(Term::Structure(Structure {
 					name: functor,
-					arguments: self.parse_term_arguments(Some(1))?,
+					arguments: self.parse_terms(Some(1))?,
 				})),
 
 				Token::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident))),
@@ -167,11 +167,11 @@ impl Parser<'_> {
 		}
 	}
 
-	fn parse_term_arguments(&mut self, minimum: Option<usize>) -> Result<Terms> {
-		let mut args = Terms::new();
+	fn parse_terms(&mut self, minimum: Option<usize>) -> Result<Terms> {
+		let mut terms = Terms::new();
 
 		loop {
-			args.push(self.parse_term()?);
+			terms.push(self.parse_term()?);
 
 			match self.next() {
 				Some(token) => match token {
@@ -180,12 +180,12 @@ impl Parser<'_> {
 					Token::CloseParenthesis => {
 						if let Some(minimum) = minimum {
 							ensure!(
-								args.len() >= minimum,
+								terms.len() >= minimum,
 								"structure has zero arguments, expected at least {minimum}"
 							);
 						}
 
-						return Ok(args);
+						return Ok(terms);
 					}
 
 					_ => bail!("syntax error, expected , or )"),
