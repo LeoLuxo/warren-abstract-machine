@@ -8,9 +8,6 @@ pub trait Successor: Clone {
 	}
 }
 
-struct Innertype;
-struct OuterType(Vec<Innertype>);
-
 #[macro_export]
 macro_rules! newtype {
 	($outer:ty{Vec<$elem:ty>}) => {

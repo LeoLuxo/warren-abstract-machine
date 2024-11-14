@@ -37,8 +37,8 @@ newtype!(HeapAddress { usize });
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Cell {
-	STR(HeapAddress),
-	REF(HeapAddress),
+	Str(HeapAddress),
+	Ref(HeapAddress),
 	Functor(Functor),
 }
 
@@ -134,15 +134,15 @@ impl M0 {
 
 	fn deref(&self, address: Address) -> Address {
 		match self.read_store(address) {
-			Cell::REF(a) if address != *a => self.deref(Address::Heap(*a)),
+			Cell::Ref(a) if address != *a => self.deref(Address::Heap(*a)),
 			_ => address,
 		}
 	}
 
 	fn bind(&mut self, address1: Address, address2: Address) -> Result<()> {
 		let (dest, src) = match (self.read_store(address1), self.read_store(address2)) {
-			(Cell::REF(a), c) if *a == address1 => (*a, c),
-			(c, Cell::REF(a)) if *a == address2 => (*a, c),
+			(Cell::Ref(a), c) if *a == address1 => (*a, c),
+			(c, Cell::Ref(a)) if *a == address2 => (*a, c),
 			_ => bail!("Unification error"),
 		};
 
@@ -163,11 +163,11 @@ impl M0 {
 		let c2 = self.read_store(d2);
 
 		match (c1, c2) {
-			(Cell::REF(_), _) | (_, Cell::REF(_)) => {
+			(Cell::Ref(_), _) | (_, Cell::Ref(_)) => {
 				self.bind(d1, d2)?;
 			}
 
-			(Cell::STR(str1), Cell::STR(str2)) => {
+			(Cell::Str(str1), Cell::Str(str2)) => {
 				self.unify(Address::Heap(*str1), Address::Heap(*str2))?;
 			}
 
@@ -188,14 +188,14 @@ impl M0 {
 	fn execute_instruction(&mut self, instruction: &L0Instruction) -> Result<()> {
 		match instruction {
 			L0Instruction::PutStructure(functor, reg) => {
-				let pointer = Cell::STR(self.heap.top() + 1);
+				let pointer = Cell::Str(self.heap.top() + 1);
 				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
 			L0Instruction::SetVariable(reg) => {
-				let pointer = Cell::REF(self.heap.top());
+				let pointer = Cell::Ref(self.heap.top());
 				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 			}
@@ -208,14 +208,14 @@ impl M0 {
 				let addr = self.deref(Address::Register(*reg));
 
 				match self.read_store(addr) {
-					Cell::REF(_) => {
-						self.heap.push(Cell::STR(self.heap.top() + 1));
+					Cell::Ref(_) => {
+						self.heap.push(Cell::Str(self.heap.top() + 1));
 						self.heap.push(Cell::Functor(functor.clone()));
 						self.bind(addr, Address::Heap(self.heap.top() - 2))?;
 						self.mode = ReadWrite::Write;
 					}
 
-					Cell::STR(a) if self.heap[*a] == Cell::Functor(functor.clone()) => {
+					Cell::Str(a) if self.heap[*a] == Cell::Functor(functor.clone()) => {
 						self.s = *a + 1;
 						self.mode = ReadWrite::Read;
 					}
@@ -231,7 +231,7 @@ impl M0 {
 					}
 
 					ReadWrite::Write => {
-						let pointer = Cell::REF(self.heap.top());
+						let pointer = Cell::Ref(self.heap.top());
 						self.var_registers[*reg] = pointer.clone();
 						self.heap.push(pointer);
 					}
