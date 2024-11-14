@@ -98,11 +98,37 @@ macro_rules! newtype {
 		}
 	};
 
-	($outer:ty{String}) => {};
+
+
+	($outer:ty{String}) => {
+		newtype!(generalized+display $outer{String});
+
+		impl From<&str> for $outer {
+			fn from(value: &str) -> Self {
+				Self(value.to_string())
+			}
+		}
+	};
+
+
 
 	($outer:ty{$inner:ty}) => {
 		newtype!(generalized $outer{$inner});
 	};
+
+
+
+	(generalized+display $outer:ty{$inner:ty}) => {
+		newtype!(generalized $outer{$inner});
+
+		impl Display for $outer {
+			fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+				Display::fmt(&self.0, f)
+			}
+		}
+	};
+
+
 
 	(generalized $outer:ty{$inner:ty}) => {
 		impl From<$inner> for $outer {

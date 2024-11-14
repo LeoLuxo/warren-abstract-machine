@@ -159,7 +159,7 @@ mod tests {
 		assert_eq!(
 			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
 			(VarRegister(0), vec![
-				MappingToken::Functor(VarRegister(0), Functor { name: "c".to_string(), arity: 0 })
+				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
 			])
 		);
 
@@ -167,16 +167,16 @@ mod tests {
 		assert_eq!(
 			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
 			(VarRegister(0), vec![
-				MappingToken::Functor(VarRegister(6), Functor { name: "c".to_string(), arity: 0 }),
-				MappingToken::Functor(VarRegister(5), Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::Functor(VarRegister(6), Functor { name: "c".into(), arity: 0 }),
+				MappingToken::Functor(VarRegister(5), Functor { name: "h".into(), arity: 2 }),
 				MappingToken::VarRegister(VarRegister(6)),
 				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::Functor(VarRegister(4), Functor { name: "f".to_string(), arity: 1 }),
+				MappingToken::Functor(VarRegister(4), Functor { name: "f".into(), arity: 1 }),
 				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(2), Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::Functor(VarRegister(2), Functor { name: "h".into(), arity: 2 }),
 				MappingToken::VarRegister(VarRegister(1)),
 				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::Functor(VarRegister(0), Functor { name: "p".to_string(), arity: 3 }),
+				MappingToken::Functor(VarRegister(0), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(VarRegister(1)),
 				MappingToken::VarRegister(VarRegister(2)),
 				MappingToken::VarRegister(VarRegister(4))
@@ -192,7 +192,7 @@ mod tests {
 		assert_eq!(
 			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
 			(VarRegister(0), vec![
-				MappingToken::Functor(VarRegister(0), Functor { name: "c".to_string(), arity: 0 })
+				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
 			])
 		);
 
@@ -200,18 +200,18 @@ mod tests {
 		assert_eq!(
 			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
 			(VarRegister(0), vec![
-				MappingToken::Functor(VarRegister(0), Functor { name: "p".to_string(), arity: 3 }),
+				MappingToken::Functor(VarRegister(0), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(VarRegister(1)),
 				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::Functor(VarRegister(2), Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::Functor(VarRegister(2), Functor { name: "h".into(), arity: 2 }),
 				MappingToken::VarRegister(VarRegister(1)),
 				MappingToken::VarRegister(VarRegister(3)),
 				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::Functor(VarRegister(4), Functor { name: "f".to_string(), arity: 1 }),
+				MappingToken::Functor(VarRegister(4), Functor { name: "f".into(), arity: 1 }),
 				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(5), Functor { name: "h".to_string(), arity: 2 }),
+				MappingToken::Functor(VarRegister(5), Functor { name: "h".into(), arity: 2 }),
 				MappingToken::VarRegister(VarRegister(6)),
-				MappingToken::Functor(VarRegister(6), Functor { name: "c".to_string(), arity: 0 }),
+				MappingToken::Functor(VarRegister(6), Functor { name: "c".into(), arity: 0 }),
 				MappingToken::VarRegister(VarRegister(3))
 			])
 		);

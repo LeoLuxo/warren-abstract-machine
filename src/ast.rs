@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display};
 
-use crate::{newtype, util::NewTypeVec};
+use crate::newtype;
 
 /*
 --------------------------------------------------------------------------------
@@ -8,7 +8,10 @@ use crate::{newtype, util::NewTypeVec};
 --------------------------------------------------------------------------------
 */
 
-pub type Identifier = String;
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Identifier(String);
+newtype!(Identifier { String });
+
 pub type Arity = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -107,7 +110,6 @@ impl Display for Rule {
 /// Represents a sequence of atoms.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Atoms(Vec<Atom>);
-
 newtype!(Atoms{Vec<Atom>});
 
 /// Represents a Prolog atom.
@@ -131,7 +133,6 @@ impl Display for Atom {
 /// Represents a sequence of terms.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Terms(Vec<Term>);
-
 newtype!(Terms{Vec<Term>});
 
 /// Represents a Prolog term.
