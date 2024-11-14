@@ -19,6 +19,12 @@ impl Parsable for Term {
 	}
 }
 
+impl Parsable for Clause {
+	fn parse_from(source: &str) -> Result<Self> {
+		Parser::new(source).parse_clause()
+	}
+}
+
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -223,7 +229,7 @@ mod test {
 		);
 
 		assert_eq!(
-			Parser::new("long(1,x,X,y)").parse_term().unwrap(),
+			Parser::new("long(  1 ,x, 			X		,y)").parse_term().unwrap(),
 			Term::Structure(Structure {
 				name: "long".to_string(),
 				arguments: vec![
@@ -231,6 +237,36 @@ mod test {
 					Term::Constant(Constant("x".to_string())),
 					Term::Variable(Variable("X".to_string())),
 					Term::Constant(Constant("y".to_string())),
+				]
+				.into()
+			})
+		);
+
+		assert_eq!(
+			Parser::new("recursive(a(b(c(d))),x(y(Z)))").parse_term().unwrap(),
+			Term::Structure(Structure {
+				name: "recursive".to_string(),
+				arguments: vec![
+					Term::Structure(Structure {
+						name: "a".to_string(),
+						arguments: vec![Term::Structure(Structure {
+							name: "b".to_string(),
+							arguments: vec![Term::Structure(Structure {
+								name: "c".to_string(),
+								arguments: vec![Term::Constant(Constant("d".to_string()))].into()
+							})]
+							.into()
+						})]
+						.into()
+					}),
+					Term::Structure(Structure {
+						name: "x".to_string(),
+						arguments: vec![Term::Structure(Structure {
+							name: "y".to_string(),
+							arguments: vec![Term::Variable(Variable("Z".to_string()))].into()
+						})]
+						.into()
+					})
 				]
 				.into()
 			})
@@ -256,6 +292,29 @@ mod test {
 				terms: vec![
 					Term::Constant(Constant("1".to_string())),
 					Term::Variable(Variable("X".to_string()))
+				]
+				.into()
+			}))
+		);
+
+		assert_eq!(
+			Parser::new("a(b, c(d), e(f(G))).").parse_clause().unwrap(),
+			Clause::Fact(Fact(Atom {
+				name: "a".to_string(),
+				terms: vec![
+					Term::Constant(Constant("b".to_string())),
+					Term::Structure(Structure {
+						name: "c".to_string(),
+						arguments: vec![Term::Constant(Constant("d".to_string()))].into()
+					}),
+					Term::Structure(Structure {
+						name: "e".to_string(),
+						arguments: vec![Term::Structure(Structure {
+							name: "f".to_string(),
+							arguments: vec![Term::Variable(Variable("G".to_string()))].into()
+						})]
+						.into()
+					})
 				]
 				.into()
 			}))

@@ -162,12 +162,6 @@ impl Display for Structure {
 	}
 }
 
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
 type Arity = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -204,5 +198,37 @@ impl GetFunctor for Constant {
 			name: self.0.clone(),
 			arity: 0,
 		}
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[cfg(test)]
+mod tests {
+	use anyhow::Result;
+
+	use crate::parser::Parsable;
+
+	use super::*;
+
+	#[test]
+	fn test_display() -> Result<()> {
+		assert_eq!(
+			format!("{}", Clause::parse_from("path(X,Z):-edge(X,Y),edge(Y,Z).")?),
+			"path(X, Z) :- edge(X, Y), edge(Y, Z)."
+		);
+
+		assert_eq!(format!("{}", Clause::parse_from("edge(1,2).")?), "edge(1, 2).");
+
+		assert_eq!(
+			format!("{}", Clause::parse_from("a(b(c),d(E)):-f(g(h(I,j,K),L),m,N).")?),
+			"a(b(c), d(E)) :- f(g(h(I, j, K), L), m, N)."
+		);
+
+		Ok(())
 	}
 }
