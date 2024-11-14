@@ -1,6 +1,7 @@
-use std::ops::Add;
+use std::{collections::HashMap, ops::Add};
 
 use anyhow::Result;
+use ast::Variable;
 use parser::Parsable;
 
 /*
@@ -32,6 +33,8 @@ impl Successor for VarRegister {
 }
 
 #[rustfmt::skip] impl Add<usize> for VarRegister { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+
+pub type VarMapping = HashMap<Variable, VarRegister>;
 
 pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
@@ -65,13 +68,11 @@ pub trait Interpreter: Sized {
 }
 
 pub trait CompilableProgram<L: Language> {
-	type SideEffects;
-	fn compile_as_program(self, side_effects: &mut Self::SideEffects) -> Vec<L::InstructionSet>;
+	fn compile_as_program(self) -> Vec<L::InstructionSet>;
 }
 
 pub trait CompilableQuery<L: Language> {
-	type SideEffects;
-	fn compile_as_query(self, side_effects: &mut Self::SideEffects) -> Vec<L::InstructionSet>;
+	fn compile_as_query(self) -> (Vec<L::InstructionSet>, VarMapping);
 }
 
 /*

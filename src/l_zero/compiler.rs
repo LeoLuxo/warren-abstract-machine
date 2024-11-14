@@ -3,8 +3,8 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 use velcro::vec;
 
 use crate::{
-	ast::{Functor, GetFunctor, Term, Variable},
-	CompilableProgram, CompilableQuery, Language, Successor, VarRegister,
+	ast::{Functor, GetFunctor, Term},
+	CompilableProgram, CompilableQuery, Language, Successor, VarMapping, VarRegister,
 };
 
 use super::{FirstOrderTerm, L0Instruction, L0};
@@ -15,12 +15,8 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 --------------------------------------------------------------------------------
 */
 
-pub type VarMapping = HashMap<Variable, VarRegister>;
-
 impl CompilableProgram<L0> for FirstOrderTerm {
-	type SideEffects = ();
-
-	fn compile_as_program(self, _: &mut ()) -> Vec<<L0 as Language>::InstructionSet> {
+	fn compile_as_program(self) -> Vec<<L0 as Language>::InstructionSet> {
 		let (_, tokens) = flatten_term(
 			self.into(),
 			&mut HashMap::new(),
@@ -33,17 +29,17 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	type SideEffects = VarMapping;
-
-	fn compile_as_query(self, var_mapping: &mut VarMapping) -> Vec<<L0 as Language>::InstructionSet> {
+	fn compile_as_query(self) -> (Vec<<L0 as Language>::InstructionSet>, VarMapping) {
+		let mut var_mapping = HashMap::new();
 		let (_, tokens) = flatten_term(
 			self.into(),
-			var_mapping,
+			&mut var_mapping,
 			&mut VarRegister::default(),
 			FlatteningOrder::BottomUp,
 		);
+		let instructions = compile_query_tokens(tokens);
 
-		compile_query_tokens(tokens)
+		(instructions, var_mapping)
 	}
 }
 

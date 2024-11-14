@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use anyhow::{bail, Result};
 use machine::M0;
@@ -23,6 +22,7 @@ pub struct L0;
 impl Language for L0 {
 	type Program = FirstOrderTerm;
 	type Query = FirstOrderTerm;
+
 	type InstructionSet = L0Instruction;
 	type Interpreter = L0Interpreter;
 }
@@ -39,13 +39,13 @@ pub enum L0Instruction {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
-	program: Vec<L0Instruction>,
+	compiled_program: Vec<L0Instruction>,
 }
 
 impl L0Interpreter {
-	fn new(program: Vec<L0Instruction>) -> Self {
+	fn new(compiled_program: Vec<L0Instruction>) -> Self {
 		Self {
-			program,
+			compiled_program,
 			..Default::default()
 		}
 	}
@@ -55,17 +55,16 @@ impl Interpreter for L0Interpreter {
 	type Lang = L0;
 
 	fn from_program(program: FirstOrderTerm) -> Self {
-		Self::new(program.compile_as_program(&mut ()))
+		Self::new(program.compile_as_program())
 	}
 
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
-		let mut var_mapping = HashMap::new();
-		let query = query.compile_as_query(&mut var_mapping);
+		let (compiled_query, var_mapping) = query.compile_as_query();
 
 		let mut machine = M0::new();
 
-		machine.execute(&query)?;
-		machine.execute(&self.program)?;
+		machine.execute(&compiled_query)?;
+		machine.execute(&self.compiled_program)?;
 
 		// let substitution = HashMap::new();
 		for (var, register) in var_mapping.into_iter() {
