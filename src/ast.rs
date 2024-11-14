@@ -8,12 +8,17 @@ use crate::newtype;
 --------------------------------------------------------------------------------
 */
 
+/// A string identifier, used for functors and variables
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Identifier(String);
 newtype!(Identifier { String });
 
-pub type Arity = usize;
+/// The arity of a functor
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Arity(usize);
+newtype!(Arity { usize });
 
+/// A functor f/n
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Functor {
 	pub name: Identifier,
@@ -34,7 +39,7 @@ impl GetFunctor for Atom {
 	fn get_functor(&self) -> Functor {
 		Functor {
 			name: self.name.clone(),
-			arity: self.terms.len(),
+			arity: self.terms.len().into(),
 		}
 	}
 }
@@ -43,7 +48,7 @@ impl GetFunctor for Structure {
 	fn get_functor(&self) -> Functor {
 		Functor {
 			name: self.name.clone(),
-			arity: self.arguments.len(),
+			arity: self.arguments.len().into(),
 		}
 	}
 }
@@ -52,7 +57,7 @@ impl GetFunctor for Constant {
 	fn get_functor(&self) -> Functor {
 		Functor {
 			name: self.0.clone(),
-			arity: 0,
+			arity: 0.into(),
 		}
 	}
 }

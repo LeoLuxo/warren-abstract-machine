@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{bail, Result};
 
-use crate::{ast::Functor, VarRegister};
+use crate::{ast::Functor, newtype, VarRegister};
 
 use super::L0Instruction;
 
@@ -33,11 +33,7 @@ enum Address {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct HeapAddress(usize);
-
-#[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
-#[rustfmt::skip] impl Sub<usize> for HeapAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
-#[rustfmt::skip] impl AddAssign<usize> for HeapAddress { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
-#[rustfmt::skip] impl SubAssign<usize> for HeapAddress { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }
+newtype!(HeapAddress { usize });
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Cell {
@@ -178,7 +174,7 @@ impl M0 {
 			(Cell::Functor(Functor { name: f1, arity: n1 }), Cell::Functor(Functor { name: f2, arity: n2 }))
 				if f1 == f2 && n1 == n2 =>
 			{
-				for i in 1..=*n1 {
+				for i in 1..=(*n1).into() {
 					self.unify(d1 + i, d2 + i)?;
 				}
 			}

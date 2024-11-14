@@ -112,6 +112,111 @@ macro_rules! newtype {
 
 
 
+	($outer:ty{u8}) => {
+		newtype!($outer{uint u8});
+	};
+
+	($outer:ty{u16}) => {
+		newtype!($outer{uint u16});
+	};
+
+	($outer:ty{u32}) => {
+		newtype!($outer{uint u32});
+	};
+
+	($outer:ty{u64}) => {
+		newtype!($outer{uint u64});
+	};
+
+	($outer:ty{usize}) => {
+		newtype!($outer{uint usize});
+	};
+
+	($outer:ty{i8}) => {
+		newtype!($outer{sint i8});
+	};
+
+	($outer:ty{i16}) => {
+		newtype!($outer{sint i16});
+	};
+
+	($outer:ty{i32}) => {
+		newtype!($outer{sint i32});
+	};
+
+	($outer:ty{i64}) => {
+		newtype!($outer{sint i64});
+	};
+
+	($outer:ty{isize}) => {
+		newtype!($outer{sint isize});
+	};
+
+
+
+	($outer:ty{uint $i:ty}) => {
+		newtype!($outer{int $i});
+	};
+
+	($outer:ty{sint $i:ty}) => {
+		newtype!($outer{int $i});
+	};
+
+
+
+	($outer:ty{int $i:ty}) => {
+		newtype!(generalized+display $outer{$i});
+
+		#[rustfmt::skip] impl PartialEq<$i> for $outer { fn eq(&self, other: &$i)     -> bool { self.0 == *other } }
+		#[rustfmt::skip] impl PartialEq<$outer> for $i { fn eq(&self, other: &$outer) -> bool { other.0 == *self } }
+
+		#[rustfmt::skip] impl std::ops::Add    for $outer {type Output = Self; fn add    (self, rhs: Self) -> Self::Output {Self(self.0 + rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Sub    for $outer {type Output = Self; fn sub    (self, rhs: Self) -> Self::Output {Self(self.0 - rhs.0)}}
+		#[rustfmt::skip] impl std::ops::BitAnd for $outer {type Output = Self; fn bitand (self, rhs: Self) -> Self::Output {Self(self.0 & rhs.0)}}
+		#[rustfmt::skip] impl std::ops::BitOr  for $outer {type Output = Self; fn bitor  (self, rhs: Self) -> Self::Output {Self(self.0 | rhs.0)}}
+		#[rustfmt::skip] impl std::ops::BitXor for $outer {type Output = Self; fn bitxor (self, rhs: Self) -> Self::Output {Self(self.0 ^ rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Mul    for $outer {type Output = Self; fn mul    (self, rhs: Self) -> Self::Output {Self(self.0 * rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Div    for $outer {type Output = Self; fn div    (self, rhs: Self) -> Self::Output {Self(self.0 / rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Rem    for $outer {type Output = Self; fn rem    (self, rhs: Self) -> Self::Output {Self(self.0 % rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Shl    for $outer {type Output = Self; fn shl    (self, rhs: Self) -> Self::Output {Self(self.0 << rhs.0)}}
+		#[rustfmt::skip] impl std::ops::Shr    for $outer {type Output = Self; fn shr    (self, rhs: Self) -> Self::Output {Self(self.0 >> rhs.0)}}
+
+		#[rustfmt::skip] impl std::ops::Add<$i>    for $outer {type Output = Self; fn add    (self, rhs: $i) -> Self::Output {Self(self.0 + rhs)}}
+		#[rustfmt::skip] impl std::ops::Sub<$i>    for $outer {type Output = Self; fn sub    (self, rhs: $i) -> Self::Output {Self(self.0 - rhs)}}
+		#[rustfmt::skip] impl std::ops::BitAnd<$i> for $outer {type Output = Self; fn bitand (self, rhs: $i) -> Self::Output {Self(self.0 & rhs)}}
+		#[rustfmt::skip] impl std::ops::BitOr<$i>  for $outer {type Output = Self; fn bitor  (self, rhs: $i) -> Self::Output {Self(self.0 | rhs)}}
+		#[rustfmt::skip] impl std::ops::BitXor<$i> for $outer {type Output = Self; fn bitxor (self, rhs: $i) -> Self::Output {Self(self.0 ^ rhs)}}
+		#[rustfmt::skip] impl std::ops::Mul<$i>    for $outer {type Output = Self; fn mul    (self, rhs: $i) -> Self::Output {Self(self.0 * rhs)}}
+		#[rustfmt::skip] impl std::ops::Div<$i>    for $outer {type Output = Self; fn div    (self, rhs: $i) -> Self::Output {Self(self.0 / rhs)}}
+		#[rustfmt::skip] impl std::ops::Rem<$i>    for $outer {type Output = Self; fn rem    (self, rhs: $i) -> Self::Output {Self(self.0 % rhs)}}
+		#[rustfmt::skip] impl std::ops::Shl<$i>    for $outer {type Output = Self; fn shl    (self, rhs: $i) -> Self::Output {Self(self.0 << rhs)}}
+		#[rustfmt::skip] impl std::ops::Shr<$i>    for $outer {type Output = Self; fn shr    (self, rhs: $i) -> Self::Output {Self(self.0 >> rhs)}}
+
+		#[rustfmt::skip] impl std::ops::AddAssign    for $outer {fn add_assign    (&mut self, rhs: Self) {self.0 += rhs.0}}
+		#[rustfmt::skip] impl std::ops::SubAssign    for $outer {fn sub_assign    (&mut self, rhs: Self) {self.0 -= rhs.0}}
+		#[rustfmt::skip] impl std::ops::BitAndAssign for $outer {fn bitand_assign (&mut self, rhs: Self) {self.0 &= rhs.0}}
+		#[rustfmt::skip] impl std::ops::BitOrAssign  for $outer {fn bitor_assign  (&mut self, rhs: Self) {self.0 |= rhs.0}}
+		#[rustfmt::skip] impl std::ops::BitXorAssign for $outer {fn bitxor_assign (&mut self, rhs: Self) {self.0 ^= rhs.0}}
+		#[rustfmt::skip] impl std::ops::MulAssign    for $outer {fn mul_assign    (&mut self, rhs: Self) {self.0 *= rhs.0}}
+		#[rustfmt::skip] impl std::ops::DivAssign    for $outer {fn div_assign    (&mut self, rhs: Self) {self.0 /= rhs.0}}
+		#[rustfmt::skip] impl std::ops::RemAssign    for $outer {fn rem_assign    (&mut self, rhs: Self) {self.0 %= rhs.0}}
+		#[rustfmt::skip] impl std::ops::ShlAssign    for $outer {fn shl_assign    (&mut self, rhs: Self) {self.0 <<= rhs.0}}
+		#[rustfmt::skip] impl std::ops::ShrAssign    for $outer {fn shr_assign    (&mut self, rhs: Self) {self.0 >>= rhs.0}}
+
+		#[rustfmt::skip] impl std::ops::AddAssign<$i>    for $outer {fn add_assign    (&mut self, rhs: $i) {self.0 += rhs}}
+		#[rustfmt::skip] impl std::ops::SubAssign<$i>    for $outer {fn sub_assign    (&mut self, rhs: $i) {self.0 -= rhs}}
+		#[rustfmt::skip] impl std::ops::BitAndAssign<$i> for $outer {fn bitand_assign (&mut self, rhs: $i) {self.0 &= rhs}}
+		#[rustfmt::skip] impl std::ops::BitOrAssign<$i>  for $outer {fn bitor_assign  (&mut self, rhs: $i) {self.0 |= rhs}}
+		#[rustfmt::skip] impl std::ops::BitXorAssign<$i> for $outer {fn bitxor_assign (&mut self, rhs: $i) {self.0 ^= rhs}}
+		#[rustfmt::skip] impl std::ops::MulAssign<$i>    for $outer {fn mul_assign    (&mut self, rhs: $i) {self.0 *= rhs}}
+		#[rustfmt::skip] impl std::ops::DivAssign<$i>    for $outer {fn div_assign    (&mut self, rhs: $i) {self.0 /= rhs}}
+		#[rustfmt::skip] impl std::ops::RemAssign<$i>    for $outer {fn rem_assign    (&mut self, rhs: $i) {self.0 %= rhs}}
+		#[rustfmt::skip] impl std::ops::ShlAssign<$i>    for $outer {fn shl_assign    (&mut self, rhs: $i) {self.0 <<= rhs}}
+		#[rustfmt::skip] impl std::ops::ShrAssign<$i>    for $outer {fn shr_assign    (&mut self, rhs: $i) {self.0 >>= rhs}}
+	};
+
+
+
 	($outer:ty{$inner:ty}) => {
 		newtype!(generalized $outer{$inner});
 	};
@@ -121,9 +226,9 @@ macro_rules! newtype {
 	(generalized+display $outer:ty{$inner:ty}) => {
 		newtype!(generalized $outer{$inner});
 
-		impl Display for $outer {
-			fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-				Display::fmt(&self.0, f)
+		impl std::fmt::Display for $outer {
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+				std::fmt::Display::fmt(&self.0, f)
 			}
 		}
 	};

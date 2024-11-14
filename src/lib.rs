@@ -22,8 +22,9 @@ pub mod util;
 // type Substitution = HashMap<Variable, Term>;
 type Substitution = ();
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VarRegister(usize);
+newtype!(VarRegister { usize });
 
 impl Default for VarRegister {
 	fn default() -> Self {
@@ -36,11 +37,6 @@ impl Successor for VarRegister {
 		Self(self.0 + 1)
 	}
 }
-
-#[rustfmt::skip] impl Add<usize> for VarRegister { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
-#[rustfmt::skip] impl Sub<usize> for VarRegister { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
-#[rustfmt::skip] impl AddAssign<usize> for VarRegister { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
-#[rustfmt::skip] impl SubAssign<usize> for VarRegister { fn sub_assign(&mut self, rhs: usize) { self.0 += rhs } }
 
 pub type VarMapping = HashMap<Variable, VarRegister>;
 
