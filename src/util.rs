@@ -11,59 +11,6 @@ pub trait Successor: Clone {
 struct Innertype;
 struct OuterType(Vec<Innertype>);
 
-pub trait NewType {
-	type Inner;
-
-	fn constructor(inner: Self::Inner) -> Self;
-	fn inner(self) -> Self::Inner;
-	fn inner_ref(&self) -> &Self::Inner;
-	fn inner_mut(&mut self) -> &mut Self::Inner;
-}
-
-impl NewType for OuterType {
-	type Inner = Vec<Innertype>;
-
-	#[inline]
-	fn constructor(inner: Self::Inner) -> Self {
-		Self(inner)
-	}
-
-	#[inline]
-	fn inner(self) -> Self::Inner {
-		self.0
-	}
-
-	#[inline]
-	fn inner_ref(&self) -> &Self::Inner {
-		&self.0
-	}
-
-	#[inline]
-	fn inner_mut(&mut self) -> &mut Self::Inner {
-		&mut self.0
-	}
-}
-
-pub trait NewTypeVec<E>: NewType<Inner = Vec<E>> + Sized {
-	fn new() -> Self {
-		Self::constructor(Vec::new())
-	}
-
-	delegate::delegate! {
-		to self.inner_ref() {
-			fn len(&self) -> usize;
-			fn is_empty(&self) -> bool;
-		}
-
-		to self.inner_mut() {
-			fn push(&mut self, value: E);
-			fn pop(&mut self) -> Option<E>;
-		}
-	}
-}
-
-impl<T, E> NewTypeVec<E> for T where T: NewType<Inner = Vec<E>> + Sized {}
-
 #[macro_export]
 macro_rules! newtype {
 	($outer:ty{Vec<$elem:ty>}) => {
@@ -89,6 +36,21 @@ macro_rules! newtype {
 			pub fn pop(&mut self) -> Option<$elem> {
 				self.0.pop()
 			}
+
+			pub fn get<I>(&self, index: I) -> Option<&I::Output>
+			where
+				I: std::slice::SliceIndex<[$elem]>,
+			{
+				self.0.get(index)
+			}
+
+			pub fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+			where
+				I: std::slice::SliceIndex<[$elem]>,
+			{
+				self.0.get_mut(index)
+			}
+
 		}
 
 		impl Display for $outer {
@@ -116,6 +78,22 @@ macro_rules! newtype {
 		impl FromIterator<$elem> for $outer {
 			fn from_iter<T: IntoIterator<Item = $elem>>(iter: T) -> Self {
 				Self(Vec::from_iter(iter))
+			}
+		}
+
+		impl<I: std::slice::SliceIndex<[$elem]>> std::ops::Index<I> for $outer {
+			type Output = I::Output;
+
+			#[inline]
+			fn index(&self, index: I) -> &Self::Output {
+				std::ops::Index::index(&self.0, index)
+			}
+		}
+
+		impl<I: std::slice::SliceIndex<[$elem]>> std::ops::IndexMut<I> for $outer {
+			#[inline]
+			fn index_mut(&mut self, index: I) -> &mut Self::Output {
+				std::ops::IndexMut::index_mut(&mut self.0, index)
 			}
 		}
 	};
