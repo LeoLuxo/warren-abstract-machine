@@ -7,8 +7,10 @@ use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
 
 use crate::{
-	ast::{Constant, Functor, Structure, Term},
-	display_iter, display_map, indent, ExtractSubstitution, VarRegister,
+	ast::{Constant, Functor, Structure},
+	display_iter, display_map, enumerate, indent,
+	subst::{ExtractSubstitution, SubstTerm, UnboundMapping},
+	VarRegister,
 };
 
 use super::L0Instruction;
@@ -116,7 +118,7 @@ enum ReadWrite {
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display("M0:\n{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{}", indent!(2, format!("{}", heap)))))]
+#[display("M0:\n{}", indent!(format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{}", indent!(enumerate!(format!("{}", heap))))))]
 pub struct M0 {
 	mode: ReadWrite,
 
@@ -143,25 +145,6 @@ impl M0 {
 		match address {
 			Address::Register(var_register) => &self.var_registers[var_register],
 			Address::Heap(heap_address) => &self.heap[heap_address],
-		}
-	}
-
-	fn deref_term(&self, address: Address) -> Option<Term> {
-		match self.read_store(address) {
-			Cell::REF(a) if address != *a => self.deref_term(Address::Heap(*a)),
-			Cell::STR(a) if address != *a => self.deref_term(Address::Heap(*a)),
-
-			Cell::Functor(Functor { name, arity }) if *arity == 0 => Some(Term::Constant(Constant(name.clone()))),
-
-			Cell::Functor(Functor { name, arity }) => Some(Term::Structure(Structure {
-				name: name.clone(),
-				arguments: (1..*arity)
-					.map(|i| self.deref_term(address + i))
-					.collect::<Option<Vec<_>>>()?
-					.into(),
-			})),
-
-			_ => None,
 		}
 	}
 
@@ -292,8 +275,31 @@ impl M0 {
 	}
 }
 
+impl M0 {
+	fn deref_term(&self, address: Address, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
+		match self.read_store(address) {
+			Cell::REF(a) if address != *a => self.deref_term(Address::Heap(*a), unbound_map),
+			Cell::STR(a) if address != *a => self.deref_term(Address::Heap(*a), unbound_map),
+
+			Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
+
+			Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
+
+			Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
+				name: name.clone(),
+				arguments: (1..*arity)
+					.map(|i| self.deref_term(address + i, unbound_map))
+					.collect::<Result<Vec<_>>>()?
+					.into(),
+			})),
+
+			_ => bail!("Machine yielded an invalid substitution, this might be a bug."),
+		}
+	}
+}
+
 impl ExtractSubstitution for M0 {
-	fn extract_reg(&self, reg: VarRegister) -> Option<Term> {
-		self.deref_term(Address::Register(reg))
+	fn extract_reg(&self, reg: VarRegister, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
+		self.deref_term(Address::Register(reg), unbound_map)
 	}
 }

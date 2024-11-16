@@ -21,9 +21,28 @@ impl<T: Ord> Sorted for Vec<T> {
 
 #[macro_export]
 macro_rules! indent {
-	($num:expr, $vec:expr) => {
-		$vec.split("\n")
+	($str:expr) => {
+		indent!($str, 2)
+	};
+
+	($str:expr, $num:expr) => {
+		$str.split("\n")
 			.map(|l| " ".repeat($num) + l)
+			.collect::<Vec<_>>()
+			.join("\n")
+	};
+}
+
+#[macro_export]
+macro_rules! enumerate {
+	($str:expr) => {
+		enumerate!($str, "{}. {}")
+	};
+
+	($str:expr, $fmt:expr) => {
+		$str.split("\n")
+			.enumerate()
+			.map(|(i, l)| format!($fmt, i, l))
 			.collect::<Vec<_>>()
 			.join("\n")
 	};

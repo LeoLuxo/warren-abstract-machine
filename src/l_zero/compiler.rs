@@ -4,7 +4,7 @@ use velcro::vec;
 
 use crate::{
 	ast::{Functor, GetFunctor, Term},
-	CompilableProgram, CompilableQuery, Instructions, Successor, VarMapping, VarRegister,
+	CompilableProgram, CompilableQuery, Instructions, RegisterMapping, Successor, VarRegister,
 };
 
 use super::{FirstOrderTerm, L0Instruction, L0};
@@ -30,7 +30,7 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> (Instructions<L0>, VarMapping) {
+	fn compile_as_query(self) -> (Instructions<L0>, RegisterMapping) {
 		let mut var_mapping = HashMap::new();
 		let (_, tokens) = flatten_term(
 			self.into(),
@@ -58,7 +58,7 @@ enum MappingToken {
 
 fn flatten_term(
 	term: Term,
-	variable_mapping: &mut VarMapping,
+	variable_mapping: &mut RegisterMapping,
 	next_id: &mut VarRegister,
 	order: FlatteningOrder,
 ) -> (VarRegister, Vec<MappingToken>) {

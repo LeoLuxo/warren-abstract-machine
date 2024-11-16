@@ -5,8 +5,8 @@ use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	CompilableProgram, CompilableQuery, ExtractSubstitution, Instructions, Interpreter, Language, Substitution,
-	VarRegister,
+	subst::ExtractSubstitution,
+	CompilableProgram, CompilableQuery, Instructions, Interpreter, Language, Substitution, VarRegister,
 };
 
 /*
@@ -84,9 +84,12 @@ impl Interpreter<L0> for L0Interpreter {
 
 		println!("{}", machine);
 
-		let substitution = machine.extract_mapping(var_mapping);
+		println!("{:?}", var_mapping);
+
+		let substitution = machine.extract_mapping(var_mapping)?;
 
 		println!("{}", substitution);
+		println!("{:?}", substitution);
 
 		Ok(substitution)
 	}

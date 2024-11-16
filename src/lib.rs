@@ -5,8 +5,9 @@ use std::{
 };
 
 use anyhow::Result;
-use ast::{Term, Variable};
+use ast::Variable;
 use derive_more::derive::{Add, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator, Sub};
+use subst::Substitution;
 use util::Successor;
 
 /*
@@ -14,6 +15,12 @@ use util::Successor;
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
+
+pub mod ast;
+pub mod l_zero;
+pub mod parser;
+pub mod subst;
+pub mod util;
 
 pub fn solve<L: Language>(program: L::Program, queries: Vec<L::Query>) -> Vec<Result<Substitution>> {
 	L::Interpreter::solve(program, queries)
@@ -28,19 +35,6 @@ pub fn solve_single<L: Language>(program: L::Program, query: L::Query) -> Result
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
-
-pub mod ast;
-pub mod l_zero;
-pub mod parser;
-pub mod util;
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
-#[display("{{ {} }}", display_map!(_0))]
-pub struct Substitution(HashMap<Variable, SubstitutionEntry>);
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
-#[display("{}", _0.as_ref().map_or("(unbound)".to_string(), |t| format!("{}", t)))]
-pub struct SubstitutionEntry(Option<Term>);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Display, From, Deref, DerefMut, Add, Sub)]
 #[from(forward)]
@@ -64,7 +58,7 @@ impl Successor for VarRegister {
 #[rustfmt::skip] impl AddAssign<usize> for VarRegister { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
 #[rustfmt::skip] impl SubAssign<usize> for VarRegister { fn sub_assign(&mut self, rhs: usize) { self.0 += rhs } }
 
-pub type VarMapping = HashMap<Variable, VarRegister>;
+pub type RegisterMapping = HashMap<Variable, VarRegister>;
 
 pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
@@ -78,7 +72,7 @@ pub trait CompilableProgram<L: Language> {
 }
 
 pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> (Instructions<L>, VarMapping);
+	fn compile_as_query(self) -> (Instructions<L>, RegisterMapping);
 }
 
 pub trait Interpreter<L: Language>: Sized {
@@ -96,26 +90,12 @@ pub trait Interpreter<L: Language>: Sized {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("Instructions:\n{}", indent!(2, display_iter!(_0, "\n")))]
+#[display("Instructions:\n{}", indent!(display_iter!(_0, "\n")))]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Instructions<L: Language>(Vec<L::InstructionSet>);
 
 impl<L: Language> Default for Instructions<L> {
 	fn default() -> Self {
 		Self(Default::default())
-	}
-}
-
-pub trait ExtractSubstitution {
-	fn extract_reg(&self, reg: VarRegister) -> Option<Term>;
-
-	fn extract_mapping(&self, mapping: VarMapping) -> Substitution {
-		let mut substitution = HashMap::new();
-		for (var, register) in mapping.into_iter() {
-			let entry = self.extract_reg(register).into();
-			substitution.insert(var, entry);
-		}
-
-		substitution.into()
 	}
 }

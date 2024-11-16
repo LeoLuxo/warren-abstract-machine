@@ -76,13 +76,20 @@ pub struct Atom {
 }
 
 /// Represents a sequence of terms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut, Index, IndexMut)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut, Index, IndexMut)]
 #[display("{}", display_iter!(_0, ", "))]
-pub struct Terms(Vec<Term>);
+#[display(bounds(T: Display))]
+pub struct Terms<T = Term>(Vec<T>);
 
 impl Terms {
 	pub fn new() -> Self {
 		Self(Vec::new())
+	}
+}
+
+impl<T> Default for Terms<T> {
+	fn default() -> Self {
+		Self(Default::default())
 	}
 }
 
@@ -130,11 +137,20 @@ pub struct Variable(pub Identifier);
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor, Display, From, Into)]
 #[display("{name}({arguments})")]
-pub struct Structure {
+pub struct Structure<T = Term> {
 	pub name: Identifier,
-	pub arguments: Terms,
+	pub arguments: Terms<T>,
+}
+
+impl<T> Default for Structure<T> {
+	fn default() -> Self {
+		Self {
+			name: Default::default(),
+			arguments: Default::default(),
+		}
+	}
 }
 
 type Arity = usize;
