@@ -1,10 +1,13 @@
-use std::fmt::{self, Debug, Display};
+use std::{
+	borrow::Cow,
+	fmt::{self, Debug, Display},
+};
 
 use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Into, IntoIterator};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deref, DerefMut, Constructor, Display, From)]
 #[from(forward)]
-pub struct Identifier(String);
+pub struct Identifier(Cow<'static, str>);
 
 /// Represents a Prolog clause, which is either a fact or a rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
