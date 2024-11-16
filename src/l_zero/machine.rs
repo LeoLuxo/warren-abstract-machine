@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use derive_more::derive::Display;
+use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
 
 use crate::{ast::Functor, display_iter, indent, VarRegister};
 
@@ -67,8 +67,8 @@ impl IndexMut<VarRegister> for VarRegisters {
 	}
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display("{}", indent!(2, display_iter!(_0, "\n")))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut)]
+#[display("{}", display_iter!(_0, "\n"))]
 struct Heap(Vec<Cell>);
 
 impl Heap {
@@ -111,8 +111,7 @@ enum ReadWrite {
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display("M0:\n{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}")))]
-// #[display(r"M0:{}", format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}").split("\n").map(|l| " ".repeat(5) + l).collect::<Vec<_>>().join("\n"))]
+#[display("M0:\n{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{}", indent!(2, format!("{}", heap)))))]
 pub struct M0 {
 	mode: ReadWrite,
 

@@ -10,8 +10,8 @@ pub trait Successor: Clone {
 
 #[macro_export]
 macro_rules! indent {
-	($num:expr, $str:expr) => {
-		$str.split("\n")
+	($num:expr, $vec:expr) => {
+		$vec.split("\n")
 			.map(|l| " ".repeat($num) + l)
 			.collect::<Vec<_>>()
 			.join("\n")

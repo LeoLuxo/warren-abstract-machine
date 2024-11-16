@@ -4,7 +4,7 @@ use velcro::vec;
 
 use crate::{
 	ast::{Functor, GetFunctor, Term},
-	CompilableProgram, CompilableQuery, Language, Successor, VarMapping, VarRegister,
+	CompilableProgram, CompilableQuery, Instructions, Successor, VarMapping, VarRegister,
 };
 
 use super::{FirstOrderTerm, L0Instruction, L0};
@@ -16,20 +16,21 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 */
 
 impl CompilableProgram<L0> for FirstOrderTerm {
-	fn compile_as_program(self) -> Vec<<L0 as Language>::InstructionSet> {
+	fn compile_as_program(self) -> Instructions<L0> {
 		let (_, tokens) = flatten_term(
 			self.into(),
 			&mut HashMap::new(),
 			&mut VarRegister::default(),
 			FlatteningOrder::TopDown,
 		);
+		let instructions = compile_program_tokens(tokens);
 
-		compile_program_tokens(tokens)
+		instructions.into()
 	}
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> (Vec<<L0 as Language>::InstructionSet>, VarMapping) {
+	fn compile_as_query(self) -> (Instructions<L0>, VarMapping) {
 		let mut var_mapping = HashMap::new();
 		let (_, tokens) = flatten_term(
 			self.into(),
@@ -39,7 +40,7 @@ impl CompilableQuery<L0> for FirstOrderTerm {
 		);
 		let instructions = compile_query_tokens(tokens);
 
-		(instructions, var_mapping)
+		(instructions.into(), var_mapping)
 	}
 }
 

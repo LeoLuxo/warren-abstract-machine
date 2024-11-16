@@ -1,11 +1,11 @@
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 use anyhow::{bail, Result};
 use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution, VarRegister,
+	CompilableProgram, CompilableQuery, Instructions, Interpreter, Language, Substitution, VarRegister,
 };
 
 /*
@@ -17,6 +17,7 @@ use crate::{
 mod compiler;
 mod machine;
 
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0;
 
 impl Language for L0 {
@@ -37,13 +38,26 @@ pub enum L0Instruction {
 	UnifyValue(VarRegister),
 }
 
+impl fmt::Display for L0Instruction {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.pad(&match self {
+			L0Instruction::PutStructure(functor, var_register) => format!("put_structure {functor}, {var_register}"),
+			L0Instruction::SetVariable(var_register) => format!("set_variable {var_register}"),
+			L0Instruction::SetValue(var_register) => format!("set_value {var_register}"),
+			L0Instruction::GetStructure(functor, var_register) => format!("get_structure {functor}, {var_register}"),
+			L0Instruction::UnifyVariable(var_register) => format!("unify_variable {var_register}"),
+			L0Instruction::UnifyValue(var_register) => format!("unify_value {var_register}"),
+		})
+	}
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
-	compiled_program: Vec<L0Instruction>,
+	compiled_program: Instructions<L0>,
 }
 
 impl L0Interpreter {
-	fn new(compiled_program: Vec<L0Instruction>) -> Self {
+	fn new(compiled_program: Instructions<L0>) -> Self {
 		Self {
 			compiled_program,
 			..Default::default()
@@ -59,12 +73,15 @@ impl Interpreter<L0> for L0Interpreter {
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
 		let (compiled_query, var_mapping) = query.compile_as_query();
 
+		println!("{}", &compiled_query);
+		println!("{}", &self.compiled_program);
+
 		let mut machine = M0::new();
 
 		machine.execute(&compiled_query)?;
 		machine.execute(&self.compiled_program)?;
 
-		println!("{machine}");
+		println!("{}", machine);
 
 		// let substitution = HashMap::new();
 		for (var, register) in var_mapping.into_iter() {

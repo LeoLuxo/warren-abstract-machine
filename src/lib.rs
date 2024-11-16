@@ -1,11 +1,12 @@
 use std::{
 	collections::HashMap,
+	fmt::Display,
 	ops::{Add, AddAssign, Sub, SubAssign},
 };
 
 use anyhow::Result;
 use ast::Variable;
-use derive_more::derive::{Add, Deref, DerefMut, Display, From, Sub};
+use derive_more::derive::{Add, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator, Sub};
 use util::Successor;
 
 /*
@@ -58,11 +59,11 @@ pub trait Language: Sized {
 }
 
 pub trait CompilableProgram<L: Language> {
-	fn compile_as_program(self) -> Vec<L::InstructionSet>;
+	fn compile_as_program(self) -> Instructions<L>;
 }
 
 pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> (Vec<L::InstructionSet>, VarMapping);
+	fn compile_as_query(self) -> (Instructions<L>, VarMapping);
 }
 
 pub trait Interpreter<L: Language>: Sized {
@@ -78,12 +79,23 @@ pub trait Interpreter<L: Language>: Sized {
 
 pub struct WAMInterpreter<L: Language>(<L as Language>::Interpreter);
 
-// impl<L: Language> Interpreter<L> for WAMInterpreter<L> {
-// 	fn from_program(program: L::Program) -> Self {
-// 		Self(L::Interpreter::from_program(program))
-// 	}
+impl<L: Language> Interpreter<L> for WAMInterpreter<L> {
+	fn from_program(program: L::Program) -> Self {
+		Self(L::Interpreter::from_program(program))
+	}
 
-// 	fn submit_query(&mut self, query: L::Query) -> Result<Substitution> {
-// 		self.0.submit_query(query)
-// 	}
-// }
+	fn submit_query(&mut self, query: L::Query) -> Result<Substitution> {
+		self.0.submit_query(query)
+	}
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display(bound(L::InstructionSet: Display))]
+#[display("Instructions:\n{}", indent!(2, display_iter!(_0, "\n")))]
+pub struct Instructions<L: Language>(Vec<L::InstructionSet>);
+
+impl<L: Language> Default for Instructions<L> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
