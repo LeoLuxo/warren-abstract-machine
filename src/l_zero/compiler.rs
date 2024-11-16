@@ -104,8 +104,8 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
-	for (inst, token) in instructions.iter_mut().zip(tokens) {
-		*inst = match token {
+	for token in tokens {
+		let inst = match token {
 			MappingToken::Functor(var, functor) => L0Instruction::PutStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
@@ -114,7 +114,9 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 			}
 
 			MappingToken::VarRegister(var) => L0Instruction::SetValue(var),
-		}
+		};
+
+		instructions.push(inst);
 	}
 
 	instructions
@@ -124,8 +126,8 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 	let mut instructions = Vec::with_capacity(tokens.len());
 	let mut encountered = HashSet::new();
 
-	for (inst, token) in instructions.iter_mut().zip(tokens) {
-		*inst = match token {
+	for token in tokens {
+		let inst = match token {
 			MappingToken::Functor(var, functor) => L0Instruction::GetStructure(functor, var),
 
 			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
@@ -134,7 +136,9 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 			}
 
 			MappingToken::VarRegister(var) => L0Instruction::UnifyValue(var),
-		}
+		};
+
+		instructions.push(inst);
 	}
 
 	instructions
