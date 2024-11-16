@@ -1,5 +1,3 @@
-use std::fmt::{self, Display, Formatter};
-
 use anyhow::{bail, Result};
 use machine::M0;
 
@@ -36,19 +34,6 @@ pub enum L0Instruction {
 	GetStructure(Functor, VarRegister),
 	UnifyVariable(VarRegister),
 	UnifyValue(VarRegister),
-}
-
-impl Display for L0Instruction {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.pad(&match self {
-			L0Instruction::PutStructure(functor, var_register) => format!("put_structure {functor}, {var_register}"),
-			L0Instruction::SetVariable(var_register) => format!("set_variable {var_register}"),
-			L0Instruction::SetValue(var_register) => format!("set_value {var_register}"),
-			L0Instruction::GetStructure(functor, var_register) => format!("get_structure {functor}, {var_register}"),
-			L0Instruction::UnifyVariable(var_register) => format!("unify_variable {var_register}"),
-			L0Instruction::UnifyValue(var_register) => format!("unify_value {var_register}"),
-		})
-	}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

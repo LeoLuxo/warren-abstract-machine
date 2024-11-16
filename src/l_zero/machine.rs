@@ -1,6 +1,5 @@
 use std::{
 	collections::HashMap,
-	fmt::{self, Display, Formatter},
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
@@ -27,44 +26,28 @@ enum Address {
 #[rustfmt::skip] impl PartialEq<HeapAddress> for Address { fn eq(&self, other: &HeapAddress) -> bool { match self  { Address::Heap(heap_address)     => heap_address == other, _ => false, } } }
 #[rustfmt::skip] impl PartialEq<Address> for HeapAddress { fn eq(&self, other: &Address)     -> bool { match other { Address::Heap(heap_address)     => heap_address == self,  _ => false, } } }
 
-// #[rustfmt::skip] impl Add<usize> for Address { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register + rhs), Address::Heap(heap_address) => Address::Heap(heap_address + rhs), } } }
-// #[rustfmt::skip] impl Sub<usize> for Address { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register - rhs), Address::Heap(heap_address) => Address::Heap(heap_address - rhs), } } }
-// #[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
-// #[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
+#[rustfmt::skip] impl Add<usize> for Address { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register + rhs), Address::Heap(heap_address) => Address::Heap(heap_address + rhs), } } }
+#[rustfmt::skip] impl Sub<usize> for Address { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { Address::Register(var_register) => Address::Register(var_register - rhs), Address::Heap(heap_address) => Address::Heap(heap_address - rhs), } } }
+#[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
+#[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct HeapAddress(usize);
 
+#[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+#[rustfmt::skip] impl Sub<usize> for HeapAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
+#[rustfmt::skip] impl AddAssign<usize> for HeapAddress { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
+#[rustfmt::skip] impl SubAssign<usize> for HeapAddress { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Cell {
-	Ref(HeapAddress),
-	Str(HeapAddress),
+	STR(HeapAddress),
+	REF(HeapAddress),
 	Functor(Functor),
-}
-
-impl Display for Cell {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.pad(&match self {
-			Cell::Ref(heap_address) => format!("<REF {heap_address}>"),
-			Cell::Str(heap_address) => format!("<STR {heap_address}>"),
-			Cell::Functor(functor) => format!("<{functor}>"),
-		})
-	}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct VarRegisters(HashMap<VarRegister, Cell>);
-newtype!(VarRegisters | HashMap<VarRegister, Cell> | Display);
-
-// impl Display for VarRegisters {
-// 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-// 		f.pad(&match self {
-// 			Cell::Ref(heap_address) => format!("<REF {heap_address}>"),
-// 			Cell::Str(heap_address) => format!("<STR {heap_address}>"),
-// 			Cell::Functor(functor) => format!("<{functor}>"),
-// 		})
-// 	}
-// }
 
 impl Index<VarRegister> for VarRegisters {
 	type Output = Cell;
@@ -155,15 +138,15 @@ impl M0 {
 
 	fn deref(&self, address: Address) -> Address {
 		match self.read_store(address) {
-			Cell::Ref(a) if address != *a => self.deref(Address::Heap(*a)),
+			Cell::REF(a) if address != *a => self.deref(Address::Heap(*a)),
 			_ => address,
 		}
 	}
 
 	fn bind(&mut self, address1: Address, address2: Address) -> Result<()> {
 		let (dest, src) = match (self.read_store(address1), self.read_store(address2)) {
-			(Cell::Ref(a), c) if *a == address1 => (*a, c),
-			(c, Cell::Ref(a)) if *a == address2 => (*a, c),
+			(Cell::REF(a), c) if *a == address1 => (*a, c),
+			(c, Cell::REF(a)) if *a == address2 => (*a, c),
 			_ => bail!("Unification error"),
 		};
 
@@ -184,18 +167,18 @@ impl M0 {
 		let c2 = self.read_store(d2);
 
 		match (c1, c2) {
-			(Cell::Ref(_), _) | (_, Cell::Ref(_)) => {
+			(Cell::REF(_), _) | (_, Cell::REF(_)) => {
 				self.bind(d1, d2)?;
 			}
 
-			(Cell::Str(str1), Cell::Str(str2)) => {
+			(Cell::STR(str1), Cell::STR(str2)) => {
 				self.unify(Address::Heap(*str1), Address::Heap(*str2))?;
 			}
 
 			(Cell::Functor(Functor { name: f1, arity: n1 }), Cell::Functor(Functor { name: f2, arity: n2 }))
 				if f1 == f2 && n1 == n2 =>
 			{
-				for i in 1..=(*n1).into() {
+				for i in 1..=*n1 {
 					self.unify(d1 + i, d2 + i)?;
 				}
 			}
@@ -207,18 +190,16 @@ impl M0 {
 	}
 
 	fn execute_instruction(&mut self, instruction: &L0Instruction) -> Result<()> {
-		println!("{}", instruction);
-
 		match instruction {
 			L0Instruction::PutStructure(functor, reg) => {
-				let pointer = Cell::Str(self.heap.top() + 1);
+				let pointer = Cell::STR(self.heap.top() + 1);
 				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
 			L0Instruction::SetVariable(reg) => {
-				let pointer = Cell::Ref(self.heap.top());
+				let pointer = Cell::REF(self.heap.top());
 				self.var_registers[*reg] = pointer.clone();
 				self.heap.push(pointer);
 			}
@@ -231,14 +212,14 @@ impl M0 {
 				let addr = self.deref(Address::Register(*reg));
 
 				match self.read_store(addr) {
-					Cell::Ref(_) => {
-						self.heap.push(Cell::Str(self.heap.top() + 1));
+					Cell::REF(_) => {
+						self.heap.push(Cell::STR(self.heap.top() + 1));
 						self.heap.push(Cell::Functor(functor.clone()));
 						self.bind(addr, Address::Heap(self.heap.top() - 2))?;
 						self.mode = ReadWrite::Write;
 					}
 
-					Cell::Str(a) if self.heap[*a] == Cell::Functor(functor.clone()) => {
+					Cell::STR(a) if self.heap[*a] == Cell::Functor(functor.clone()) => {
 						self.s = *a + 1;
 						self.mode = ReadWrite::Read;
 					}
@@ -254,7 +235,7 @@ impl M0 {
 					}
 
 					ReadWrite::Write => {
-						let pointer = Cell::Ref(self.heap.top());
+						let pointer = Cell::REF(self.heap.top());
 						self.var_registers[*reg] = pointer.clone();
 						self.heap.push(pointer);
 					}

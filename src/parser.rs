@@ -141,7 +141,7 @@ impl Parser<'_> {
 	fn parse_atom(&mut self) -> Result<Atom> {
 		if let Some(Token::Functor(functor)) = self.next() {
 			Ok(Atom {
-				name: functor.into(),
+				name: functor,
 				terms: self.parse_terms(Some(1))?,
 			})
 		} else {
@@ -153,13 +153,13 @@ impl Parser<'_> {
 		match self.next() {
 			Some(token) => match token {
 				Token::Functor(functor) => Ok(Term::Structure(Structure {
-					name: functor.into(),
+					name: functor,
 					arguments: self.parse_terms(Some(1))?,
 				})),
 
-				Token::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident.into()))),
+				Token::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident))),
 
-				Token::ConstantIdentifier(ident) => Ok(Term::Constant(Constant(ident.into()))),
+				Token::ConstantIdentifier(ident) => Ok(Term::Constant(Constant(ident))),
 
 				_ => bail!("syntax error, expected identifier"),
 			},
@@ -196,12 +196,6 @@ impl Parser<'_> {
 	}
 }
 
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -210,39 +204,39 @@ mod test {
 	fn test_parse_term_success() {
 		assert_eq!(
 			Parser::new("const").parse_term().unwrap(),
-			Term::Constant(Constant("const".into()))
+			Term::Constant(Constant("const".to_string()))
 		);
 
 		assert_eq!(
 			Parser::new("Var").parse_term().unwrap(),
-			Term::Variable(Variable("Var".into()))
+			Term::Variable(Variable("Var".to_string()))
 		);
 
 		assert_eq!(
 			Parser::new("func(1)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				name: "func".into(),
-				arguments: vec![Term::Constant(Constant("1".into()))].into()
+				name: "func".to_string(),
+				arguments: vec![Term::Constant(Constant("1".to_string()))].into()
 			})
 		);
 
 		assert_eq!(
 			Parser::new("FUNC123(ASD)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				name: "FUNC123".into(),
-				arguments: vec![Term::Variable(Variable("ASD".into()))].into()
+				name: "FUNC123".to_string(),
+				arguments: vec![Term::Variable(Variable("ASD".to_string()))].into()
 			})
 		);
 
 		assert_eq!(
 			Parser::new("long(  1 ,x, 			X		,y)").parse_term().unwrap(),
 			Term::Structure(Structure {
-				name: "long".into(),
+				name: "long".to_string(),
 				arguments: vec![
-					Term::Constant(Constant("1".into())),
-					Term::Constant(Constant("x".into())),
-					Term::Variable(Variable("X".into())),
-					Term::Constant(Constant("y".into())),
+					Term::Constant(Constant("1".to_string())),
+					Term::Constant(Constant("x".to_string())),
+					Term::Variable(Variable("X".to_string())),
+					Term::Constant(Constant("y".to_string())),
 				]
 				.into()
 			})
@@ -251,25 +245,25 @@ mod test {
 		assert_eq!(
 			Parser::new("recursive(a(b(c(d))),x(y(Z)))").parse_term().unwrap(),
 			Term::Structure(Structure {
-				name: "recursive".into(),
+				name: "recursive".to_string(),
 				arguments: vec![
 					Term::Structure(Structure {
-						name: "a".into(),
+						name: "a".to_string(),
 						arguments: vec![Term::Structure(Structure {
-							name: "b".into(),
+							name: "b".to_string(),
 							arguments: vec![Term::Structure(Structure {
-								name: "c".into(),
-								arguments: vec![Term::Constant(Constant("d".into()))].into()
+								name: "c".to_string(),
+								arguments: vec![Term::Constant(Constant("d".to_string()))].into()
 							})]
 							.into()
 						})]
 						.into()
 					}),
 					Term::Structure(Structure {
-						name: "x".into(),
+						name: "x".to_string(),
 						arguments: vec![Term::Structure(Structure {
-							name: "y".into(),
-							arguments: vec![Term::Variable(Variable("Z".into()))].into()
+							name: "y".to_string(),
+							arguments: vec![Term::Variable(Variable("Z".to_string()))].into()
 						})]
 						.into()
 					})
@@ -294,10 +288,10 @@ mod test {
 		assert_eq!(
 			Parser::new("edge(1, X).").parse_clause().unwrap(),
 			Clause::Fact(Fact(Atom {
-				name: "edge".into(),
+				name: "edge".to_string(),
 				terms: vec![
-					Term::Constant(Constant("1".into())),
-					Term::Variable(Variable("X".into()))
+					Term::Constant(Constant("1".to_string())),
+					Term::Variable(Variable("X".to_string()))
 				]
 				.into()
 			}))
@@ -306,18 +300,18 @@ mod test {
 		assert_eq!(
 			Parser::new("a(b, c(d), e(f(G))).").parse_clause().unwrap(),
 			Clause::Fact(Fact(Atom {
-				name: "a".into(),
+				name: "a".to_string(),
 				terms: vec![
-					Term::Constant(Constant("b".into())),
+					Term::Constant(Constant("b".to_string())),
 					Term::Structure(Structure {
-						name: "c".into(),
-						arguments: vec![Term::Constant(Constant("d".into()))].into()
+						name: "c".to_string(),
+						arguments: vec![Term::Constant(Constant("d".to_string()))].into()
 					}),
 					Term::Structure(Structure {
-						name: "e".into(),
+						name: "e".to_string(),
 						arguments: vec![Term::Structure(Structure {
-							name: "f".into(),
-							arguments: vec![Term::Variable(Variable("G".into()))].into()
+							name: "f".to_string(),
+							arguments: vec![Term::Variable(Variable("G".to_string()))].into()
 						})]
 						.into()
 					})
@@ -332,27 +326,27 @@ mod test {
 				.unwrap(),
 			Clause::Rule(Rule {
 				head: Atom {
-					name: "path".into(),
+					name: "path".to_string(),
 					terms: vec![
-						Term::Variable(Variable("X".into())),
-						Term::Variable(Variable("Z".into()))
+						Term::Variable(Variable("X".to_string())),
+						Term::Variable(Variable("Z".to_string()))
 					]
 					.into()
 				},
 				body: vec![
 					Atom {
-						name: "edge".into(),
+						name: "edge".to_string(),
 						terms: vec![
-							Term::Variable(Variable("X".into())),
-							Term::Variable(Variable("Y".into()))
+							Term::Variable(Variable("X".to_string())),
+							Term::Variable(Variable("Y".to_string()))
 						]
 						.into()
 					},
 					Atom {
-						name: "edge".into(),
+						name: "edge".to_string(),
 						terms: vec![
-							Term::Variable(Variable("Y".into())),
-							Term::Variable(Variable("Z".into()))
+							Term::Variable(Variable("Y".to_string())),
+							Term::Variable(Variable("Z".to_string()))
 						]
 						.into()
 					}
