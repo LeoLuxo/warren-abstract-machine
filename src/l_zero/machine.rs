@@ -6,7 +6,7 @@ use std::{
 use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
 
-use crate::{ast::Functor, display_iter, indent, VarRegister};
+use crate::{ast::Functor, display_iter, indent, util::Sorted, VarRegister};
 
 use super::L0Instruction;
 
@@ -32,7 +32,7 @@ enum Address {
 #[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
 #[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut)]
 struct HeapAddress(usize);
 
 #[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
@@ -42,28 +42,30 @@ struct HeapAddress(usize);
 
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
 enum Cell {
-	STR(HeapAddress),
+	#[display("REF {}", _0)]
 	REF(HeapAddress),
+
+	#[display("STR {}", _0)]
+	STR(HeapAddress),
+
 	Functor(Functor),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display("{}", _0.iter().map(|(x, c)| format!("{x}={c}")).collect::<Vec<_>>().join("\n"),)]
+#[display("{}", _0.iter().map(|(x, c)| format!("{x} = {c}")).collect::<Vec<_>>().sorted().join("\n"),)]
 struct VarRegisters(HashMap<VarRegister, Cell>);
+
+impl VarRegisters {
+	pub fn set(&mut self, index: VarRegister, value: Cell) {
+		self.0.insert(index, value);
+	}
+}
 
 impl Index<VarRegister> for VarRegisters {
 	type Output = Cell;
 
 	fn index(&self, index: VarRegister) -> &Self::Output {
 		self.0.get(&index).expect("Attempted reading an uninitialized register")
-	}
-}
-
-impl IndexMut<VarRegister> for VarRegisters {
-	fn index_mut(&mut self, index: VarRegister) -> &mut Self::Output {
-		self.0
-			.get_mut(&index)
-			.expect("Attempted accessing an uninitialized register")
 	}
 }
 
@@ -85,14 +87,14 @@ impl Index<HeapAddress> for Heap {
 	type Output = Cell;
 
 	fn index(&self, index: HeapAddress) -> &Self::Output {
-		self.0.get(index.0).expect("Attempted reading an invalid heap address")
+		self.0.get(*index).expect("Attempted reading an invalid heap address")
 	}
 }
 
 impl IndexMut<HeapAddress> for Heap {
 	fn index_mut(&mut self, index: HeapAddress) -> &mut Self::Output {
 		self.0
-			.get_mut(index.0)
+			.get_mut(*index)
 			.expect("Attempted accessing an invalid heap address")
 	}
 }
@@ -198,14 +200,14 @@ impl M0 {
 		match instruction {
 			L0Instruction::PutStructure(functor, reg) => {
 				let pointer = Cell::STR(self.heap.top() + 1);
-				self.var_registers[*reg] = pointer.clone();
+				self.var_registers.set(*reg, pointer.clone());
 				self.heap.push(pointer);
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
 			L0Instruction::SetVariable(reg) => {
 				let pointer = Cell::REF(self.heap.top());
-				self.var_registers[*reg] = pointer.clone();
+				self.var_registers.set(*reg, pointer.clone());
 				self.heap.push(pointer);
 			}
 
@@ -236,12 +238,12 @@ impl M0 {
 			L0Instruction::UnifyVariable(reg) => {
 				match self.mode {
 					ReadWrite::Read => {
-						self.var_registers[*reg] = self.heap[self.s].clone();
+						self.var_registers.set(*reg, self.heap[self.s].clone());
 					}
 
 					ReadWrite::Write => {
 						let pointer = Cell::REF(self.heap.top());
-						self.var_registers[*reg] = pointer.clone();
+						self.var_registers.set(*reg, pointer.clone());
 						self.heap.push(pointer);
 					}
 				};

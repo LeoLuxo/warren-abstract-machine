@@ -73,8 +73,8 @@ impl Interpreter<L0> for L0Interpreter {
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
 		let (compiled_query, var_mapping) = query.compile_as_query();
 
-		println!("{}", &compiled_query);
-		println!("{}", &self.compiled_program);
+		println!("Query {}", &compiled_query);
+		println!("Program {}", &self.compiled_program);
 
 		let mut machine = M0::new();
 
@@ -86,7 +86,7 @@ impl Interpreter<L0> for L0Interpreter {
 		// let substitution = HashMap::new();
 		for (var, register) in var_mapping.into_iter() {
 			// substitution[&var] = self.read_register(register).clone()
-			println!("{:?}: {:?}", var, register);
+			println!("{}: {}", var, register);
 		}
 		// substitution
 

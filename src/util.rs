@@ -8,6 +8,17 @@ pub trait Successor: Clone {
 	}
 }
 
+pub trait Sorted {
+	fn sorted(self) -> Self;
+}
+
+impl<T: Ord> Sorted for Vec<T> {
+	fn sorted(mut self) -> Self {
+		self.sort();
+		self
+	}
+}
+
 #[macro_export]
 macro_rules! indent {
 	($num:expr, $vec:expr) => {
