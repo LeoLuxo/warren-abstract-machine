@@ -103,6 +103,8 @@ pub enum Term {
 	Structure(Structure),
 }
 
+
+
 /// Represents a Prolog constant.
 ///
 /// Examples:
@@ -144,6 +146,12 @@ type Arity = usize;
 pub struct Functor {
 	pub name: Identifier,
 	pub arity: Arity,
+}
+
+impl Functor {
+	pub fn is_constant(&self) -> bool {
+		self.arity == 0
+	}
 }
 
 pub trait GetFunctor {

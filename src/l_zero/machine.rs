@@ -6,7 +6,12 @@ use std::{
 use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
 
-use crate::{ast::Functor, display_iter, indent, util::Sorted, VarRegister};
+use crate::{
+	ast::{Functor, Structure, Term},
+	display_iter, indent,
+	util::Sorted,
+	ExtractSubstitution, VarRegister,
+};
 
 use super::L0Instruction;
 
@@ -143,6 +148,23 @@ impl M0 {
 		}
 	}
 
+	fn deref_term(&self, address: Address) -> Option<Term> {
+		match self.read_store(address) {
+			Cell::REF(a) if address != *a => self.deref_term(Address::Heap(*a)),
+			Cell::STR(a) if address != *a => self.deref_term(Address::Heap(*a)),
+
+			Cell::Functor(Functor { name, arity }) => Some(Term::Structure(Structure {
+				name: name.clone(),
+				arguments: (1..*arity)
+					.map(|i| self.deref_term(address + i))
+					.collect::<Option<Vec<_>>>()?
+					.into(),
+			})),
+
+			_ => None,
+		}
+	}
+
 	fn deref(&self, address: Address) -> Address {
 		match self.read_store(address) {
 			Cell::REF(a) if address != *a => self.deref(Address::Heap(*a)),
@@ -267,5 +289,11 @@ impl M0 {
 		}
 
 		Ok(())
+	}
+}
+
+impl ExtractSubstitution for M0 {
+	fn extract_reg(&self, reg: VarRegister) -> Option<Term> {
+		self.deref_term(Address::Register(reg))
 	}
 }

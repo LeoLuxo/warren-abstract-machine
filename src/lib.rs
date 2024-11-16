@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use ast::Variable;
+use ast::{Term, Variable};
 use derive_more::derive::{Add, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator, Sub};
 use util::Successor;
 
@@ -20,8 +20,7 @@ pub mod l_zero;
 pub mod parser;
 pub mod util;
 
-// type Substitution = HashMap<Variable, Term>;
-type Substitution = ();
+type Substitution = HashMap<Variable, Option<Term>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Display, From, Deref, DerefMut, Add, Sub)]
 #[from(forward)]
@@ -97,5 +96,18 @@ pub struct Instructions<L: Language>(Vec<L::InstructionSet>);
 impl<L: Language> Default for Instructions<L> {
 	fn default() -> Self {
 		Self(Default::default())
+	}
+}
+
+pub trait ExtractSubstitution {
+	fn extract_reg(&self, reg: VarRegister) -> Option<Term>;
+
+	fn extract_mapping(&self, mapping: VarMapping) -> Substitution {
+		let mut substitution = HashMap::new();
+		for (var, register) in mapping.into_iter() {
+			substitution.insert(var, self.extract_reg(register));
+		}
+
+		substitution
 	}
 }

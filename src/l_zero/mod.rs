@@ -1,11 +1,12 @@
-use std::{fmt, str::FromStr};
+use std::{collections::HashMap, fmt, str::FromStr};
 
 use anyhow::{bail, Result};
 use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	CompilableProgram, CompilableQuery, Instructions, Interpreter, Language, Substitution, VarRegister,
+	CompilableProgram, CompilableQuery, ExtractSubstitution, Instructions, Interpreter, Language, Substitution,
+	VarRegister,
 };
 
 /*
@@ -83,14 +84,9 @@ impl Interpreter<L0> for L0Interpreter {
 
 		println!("{}", machine);
 
-		// let substitution = HashMap::new();
-		for (var, register) in var_mapping.into_iter() {
-			// substitution[&var] = self.read_register(register).clone()
-			println!("{}: {}", var, register);
-		}
-		// substitution
+		let substitution = machine.extract_mapping(var_mapping);
 
-		Ok(())
+		Ok(substitution)
 	}
 }
 

@@ -81,8 +81,8 @@ fn flatten_term(
 		}
 
 		Term::Structure(structure) => {
-			let functor = structure.get_functor();
 			let id = next_id.incr();
+			let functor = structure.get_functor();
 
 			let mut tokens = vec![MappingToken::Functor(id, functor)];
 
