@@ -1,9 +1,10 @@
+use std::str::FromStr;
+
 use anyhow::{bail, Result};
 use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	parser::{ParsableFrom, ParsableInto},
 	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution, VarRegister,
 };
 
@@ -108,8 +109,10 @@ impl From<FirstOrderTerm> for Term {
 	}
 }
 
-impl<S: AsRef<str>> ParsableFrom<S> for FirstOrderTerm {
-	fn parse_from(source: S) -> Result<Self> {
-		Term::parse_from(source.as_ref())?.try_into()
+impl FromStr for FirstOrderTerm {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+		s.parse::<Term>()?.try_into()
 	}
 }

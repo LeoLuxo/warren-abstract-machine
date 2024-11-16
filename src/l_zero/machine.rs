@@ -111,13 +111,14 @@ enum ReadWrite {
 */
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display(r"M0:{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}")))]
+#[display("M0:\n{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}")))]
 // #[display(r"M0:{}", format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}").split("\n").map(|l| " ".repeat(5) + l).collect::<Vec<_>>().join("\n"))]
 pub struct M0 {
-	s: HeapAddress,
 	mode: ReadWrite,
 
+	s: HeapAddress,
 	var_registers: VarRegisters,
+
 	heap: Heap,
 }
 

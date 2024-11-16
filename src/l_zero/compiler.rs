@@ -147,7 +147,6 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 
 #[cfg(test)]
 mod tests {
-	use crate::parser::ParsableFrom;
 
 	use super::*;
 	use anyhow::Result;
@@ -157,7 +156,7 @@ mod tests {
 	fn test_flatten_term_bottomup() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
+			flatten_term("c".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
 			(VarRegister(0), vec![
 				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
 			])
@@ -165,7 +164,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
+			flatten_term("p(Z, h(Z,W), f(h(c, W)))".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
 			(VarRegister(0), vec![
 				MappingToken::Functor(VarRegister(6), Functor { name: "c".into(), arity: 0 }),
 				MappingToken::Functor(VarRegister(5), Functor { name: "h".into(), arity: 2 }),
@@ -190,7 +189,7 @@ mod tests {
 	fn test_flatten_term_topdown() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(Term::parse_from("c")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
+			flatten_term("c".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
 			(VarRegister(0), vec![
 				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
 			])
@@ -198,7 +197,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(Term::parse_from("p(Z, h(Z,W), f(h(c, W)))")?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
+			flatten_term("p(Z, h(Z,W), f(h(c, W)))".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
 			(VarRegister(0), vec![
 				MappingToken::Functor(VarRegister(0), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(VarRegister(1)),

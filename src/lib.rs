@@ -6,7 +6,6 @@ use std::{
 use anyhow::Result;
 use ast::Variable;
 use derive_more::derive::{Add, Deref, DerefMut, Display, From, Sub};
-use parser::{ParsableFrom, ParsableInto};
 use util::Successor;
 
 /*
