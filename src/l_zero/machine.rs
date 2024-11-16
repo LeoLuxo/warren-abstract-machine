@@ -4,8 +4,9 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use derive_more::derive::Display;
 
-use crate::{ast::Functor, VarRegister};
+use crate::{ast::Functor, display_iter, indent, VarRegister};
 
 use super::L0Instruction;
 
@@ -31,7 +32,7 @@ enum Address {
 #[rustfmt::skip] impl AddAssign<usize> for Address { fn add_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register += rhs, Address::Heap(heap_address) => *heap_address += rhs, } } }
 #[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display)]
 struct HeapAddress(usize);
 
 #[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
@@ -39,14 +40,15 @@ struct HeapAddress(usize);
 #[rustfmt::skip] impl AddAssign<usize> for HeapAddress { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
 #[rustfmt::skip] impl SubAssign<usize> for HeapAddress { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Display)]
 enum Cell {
 	STR(HeapAddress),
 	REF(HeapAddress),
 	Functor(Functor),
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
+#[display("{}", _0.iter().map(|(x, c)| format!("{x}={c}")).collect::<Vec<_>>().join("\n"),)]
 struct VarRegisters(HashMap<VarRegister, Cell>);
 
 impl Index<VarRegister> for VarRegisters {
@@ -65,7 +67,8 @@ impl IndexMut<VarRegister> for VarRegisters {
 	}
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
+#[display("{}", indent!(2, display_iter!(_0, "\n")))]
 struct Heap(Vec<Cell>);
 
 impl Heap {
@@ -94,7 +97,7 @@ impl IndexMut<HeapAddress> for Heap {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display)]
 enum ReadWrite {
 	#[default]
 	Read,
@@ -107,7 +110,9 @@ enum ReadWrite {
 --------------------------------------------------------------------------------
 */
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
+#[display(r"M0:{}", indent!(2, format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}")))]
+// #[display(r"M0:{}", format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{heap}").split("\n").map(|l| " ".repeat(5) + l).collect::<Vec<_>>().join("\n"))]
 pub struct M0 {
 	s: HeapAddress,
 	mode: ReadWrite,

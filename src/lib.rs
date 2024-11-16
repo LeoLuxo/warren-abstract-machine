@@ -6,7 +6,8 @@ use std::{
 use anyhow::Result;
 use ast::Variable;
 use derive_more::derive::{Add, Deref, DerefMut, Display, From, Sub};
-use parser::Parsable;
+use parser::{ParsableFrom, ParsableInto};
+use util::Successor;
 
 /*
 --------------------------------------------------------------------------------
@@ -17,6 +18,7 @@ use parser::Parsable;
 pub mod ast;
 pub mod l_zero;
 pub mod parser;
+pub mod util;
 
 // type Substitution = HashMap<Variable, Term>;
 type Substitution = ();
@@ -49,30 +51,10 @@ pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
 	type Query: CompilableQuery<Self>;
 	type InstructionSet;
-	type Interpreter: Interpreter;
-}
+	type Interpreter: Interpreter<Self>;
 
-pub trait Interpreter: Sized {
-	type Lang: Language;
-
-	fn submit_query(&mut self, query: <Self::Lang as Language>::Query) -> Result<Substitution>;
-	fn from_program(program: <Self::Lang as Language>::Program) -> Self;
-
-	fn from_program_source(source: &str) -> Result<Self>
-	where
-		<Self::Lang as Language>::Program: Parsable,
-	{
-		let program = <Self::Lang as Language>::Program::parse_from(source)?;
-		Ok(Self::from_program(program))
-	}
-
-	fn submit_query_source(&mut self, source: &str) -> Result<Substitution>
-	where
-		<Self::Lang as Language>::Query: Parsable,
-	{
-		let query = <Self::Lang as Language>::Query::parse_from(source)?;
-		self.submit_query(query)?;
-		Ok(())
+	fn solve(program: Self::Program, queries: Vec<Self::Query>) -> Vec<Result<Substitution>> {
+		Self::Interpreter::solve(program, queries)
 	}
 }
 
@@ -84,12 +66,25 @@ pub trait CompilableQuery<L: Language> {
 	fn compile_as_query(self) -> (Vec<L::InstructionSet>, VarMapping);
 }
 
-pub trait Successor: Clone {
-	fn next(&self) -> Self;
+pub trait Interpreter<L: Language>: Sized {
+	fn from_program(program: L::Program) -> Self;
+	fn submit_query(&mut self, query: L::Query) -> Result<Substitution>;
 
-	fn incr(&mut self) -> Self {
-		let old = self.clone();
-		*self = self.next();
-		old
+	fn solve(program: L::Program, queries: Vec<L::Query>) -> Vec<Result<Substitution>> {
+		let mut interpreter = Self::from_program(program);
+
+		queries.into_iter().map(|q| interpreter.submit_query(q)).collect()
 	}
 }
+
+pub struct WAMInterpreter<L: Language>(<L as Language>::Interpreter);
+
+// impl<L: Language> Interpreter<L> for WAMInterpreter<L> {
+// 	fn from_program(program: L::Program) -> Self {
+// 		Self(L::Interpreter::from_program(program))
+// 	}
+
+// 	fn submit_query(&mut self, query: L::Query) -> Result<Substitution> {
+// 		self.0.submit_query(query)
+// 	}
+// }

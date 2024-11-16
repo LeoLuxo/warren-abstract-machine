@@ -3,7 +3,9 @@ use std::{
 	fmt::{self, Debug, Display},
 };
 
-use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Into, IntoIterator};
+use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Index, IndexMut, Into, IntoIterator};
+
+use crate::display_iter;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deref, DerefMut, Constructor, Display, From)]
 #[from(forward)]
@@ -50,8 +52,8 @@ pub struct Rule {
 }
 
 /// Represents a sequence of atoms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, Into, IntoIterator)]
-#[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, Into, IntoIterator, Index, IndexMut)]
+#[display("{}", display_iter!(_0, ", "))]
 pub struct Atoms(Vec<Atom>);
 
 impl Atoms {
@@ -74,8 +76,8 @@ pub struct Atom {
 }
 
 /// Represents a sequence of terms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut)]
-#[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut, Index, IndexMut)]
+#[display("{}", display_iter!(_0, ", "))]
 pub struct Terms(Vec<Term>);
 
 impl Terms {
@@ -185,7 +187,7 @@ impl GetFunctor for Constant {
 mod tests {
 	use anyhow::Result;
 
-	use crate::parser::Parsable;
+	use crate::parser::ParsableFrom;
 
 	use super::*;
 

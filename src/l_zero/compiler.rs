@@ -147,7 +147,7 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 
 #[cfg(test)]
 mod tests {
-	use crate::parser::Parsable;
+	use crate::parser::ParsableFrom;
 
 	use super::*;
 	use anyhow::Result;

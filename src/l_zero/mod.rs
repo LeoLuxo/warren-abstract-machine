@@ -3,7 +3,7 @@ use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	parser::Parsable,
+	parser::{ParsableFrom, ParsableInto},
 	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution, VarRegister,
 };
 
@@ -50,9 +50,7 @@ impl L0Interpreter {
 	}
 }
 
-impl Interpreter for L0Interpreter {
-	type Lang = L0;
-
+impl Interpreter<L0> for L0Interpreter {
 	fn from_program(program: FirstOrderTerm) -> Self {
 		Self::new(program.compile_as_program())
 	}
@@ -64,6 +62,8 @@ impl Interpreter for L0Interpreter {
 
 		machine.execute(&compiled_query)?;
 		machine.execute(&self.compiled_program)?;
+
+		println!("{machine}");
 
 		// let substitution = HashMap::new();
 		for (var, register) in var_mapping.into_iter() {
@@ -108,8 +108,8 @@ impl From<FirstOrderTerm> for Term {
 	}
 }
 
-impl Parsable for FirstOrderTerm {
-	fn parse_from(source: &str) -> Result<Self> {
-		Term::parse_from(source)?.try_into()
+impl<S: AsRef<str>> ParsableFrom<S> for FirstOrderTerm {
+	fn parse_from(source: S) -> Result<Self> {
+		Term::parse_from(source.as_ref())?.try_into()
 	}
 }

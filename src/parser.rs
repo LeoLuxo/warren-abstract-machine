@@ -9,19 +9,35 @@ use crate::ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Ter
 --------------------------------------------------------------------------------
 */
 
-pub trait Parsable: Sized {
-	fn parse_from(source: &str) -> Result<Self>;
+pub trait ParsableFrom<Source>: Sized {
+	fn parse_from(source: Source) -> Result<Self>;
 }
 
-impl Parsable for Term {
-	fn parse_from(source: &str) -> Result<Self> {
-		Parser::new(source).parse_term()
+impl<T> ParsableFrom<T> for T {
+	fn parse_from(source: T) -> Result<Self> {
+		Ok(source)
 	}
 }
 
-impl Parsable for Clause {
-	fn parse_from(source: &str) -> Result<Self> {
-		Parser::new(source).parse_clause()
+impl<S: AsRef<str>> ParsableFrom<S> for Term {
+	fn parse_from(source: S) -> Result<Self> {
+		Parser::new(source.as_ref()).parse_term()
+	}
+}
+
+impl<S: AsRef<str>> ParsableFrom<S> for Clause {
+	fn parse_from(source: S) -> Result<Self> {
+		Parser::new(source.as_ref()).parse_clause()
+	}
+}
+
+pub trait ParsableInto<Output>: Sized {
+	fn parse(self) -> Result<Output>;
+}
+
+impl<T, U: ParsableFrom<T>> ParsableInto<U> for T {
+	fn parse(self) -> Result<U> {
+		U::parse_from(self)
 	}
 }
 
