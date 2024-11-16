@@ -15,6 +15,20 @@ use util::Successor;
 --------------------------------------------------------------------------------
 */
 
+pub fn solve<L: Language>(program: L::Program, queries: Vec<L::Query>) -> Vec<Result<Substitution>> {
+	L::Interpreter::solve(program, queries)
+}
+
+pub fn solve_single<L: Language>(program: L::Program, query: L::Query) -> Result<Substitution> {
+	L::Interpreter::solve_single(program, query)
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 pub mod ast;
 pub mod l_zero;
 pub mod parser;
@@ -57,10 +71,6 @@ pub trait Language: Sized {
 	type Query: CompilableQuery<Self>;
 	type InstructionSet;
 	type Interpreter: Interpreter<Self>;
-
-	fn solve(program: Self::Program, queries: Vec<Self::Query>) -> Vec<Result<Substitution>> {
-		Self::Interpreter::solve(program, queries)
-	}
 }
 
 pub trait CompilableProgram<L: Language> {
@@ -75,22 +85,13 @@ pub trait Interpreter<L: Language>: Sized {
 	fn from_program(program: L::Program) -> Self;
 	fn submit_query(&mut self, query: L::Query) -> Result<Substitution>;
 
+	fn solve_single(program: L::Program, query: L::Query) -> Result<Substitution> {
+		Self::from_program(program).submit_query(query)
+	}
+
 	fn solve(program: L::Program, queries: Vec<L::Query>) -> Vec<Result<Substitution>> {
 		let mut interpreter = Self::from_program(program);
-
 		queries.into_iter().map(|q| interpreter.submit_query(q)).collect()
-	}
-}
-
-pub struct WAMInterpreter<L: Language>(<L as Language>::Interpreter);
-
-impl<L: Language> Interpreter<L> for WAMInterpreter<L> {
-	fn from_program(program: L::Program) -> Self {
-		Self(L::Interpreter::from_program(program))
-	}
-
-	fn submit_query(&mut self, query: L::Query) -> Result<Substitution> {
-		self.0.submit_query(query)
 	}
 }
 
