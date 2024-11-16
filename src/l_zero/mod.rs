@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{fmt, str::FromStr};
 
 use anyhow::{bail, Result};
 use machine::M0;
@@ -85,6 +85,8 @@ impl Interpreter<L0> for L0Interpreter {
 		println!("{}", machine);
 
 		let substitution = machine.extract_mapping(var_mapping);
+
+		println!("{}", substitution);
 
 		Ok(substitution)
 	}

@@ -20,7 +20,13 @@ pub mod l_zero;
 pub mod parser;
 pub mod util;
 
-type Substitution = HashMap<Variable, Option<Term>>;
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
+#[display("{{ {} }}", display_map!(_0))]
+pub struct Substitution(HashMap<Variable, SubstitutionEntry>);
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
+#[display("{}", _0.as_ref().map_or("(unbound)".to_string(), |t| format!("{}", t)))]
+pub struct SubstitutionEntry(Option<Term>);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Display, From, Deref, DerefMut, Add, Sub)]
 #[from(forward)]
@@ -89,8 +95,8 @@ impl<L: Language> Interpreter<L> for WAMInterpreter<L> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display(bound(L::InstructionSet: Display))]
 #[display("Instructions:\n{}", indent!(2, display_iter!(_0, "\n")))]
+#[display(bounds(L::InstructionSet: Display))]
 pub struct Instructions<L: Language>(Vec<L::InstructionSet>);
 
 impl<L: Language> Default for Instructions<L> {
@@ -105,9 +111,10 @@ pub trait ExtractSubstitution {
 	fn extract_mapping(&self, mapping: VarMapping) -> Substitution {
 		let mut substitution = HashMap::new();
 		for (var, register) in mapping.into_iter() {
-			substitution.insert(var, self.extract_reg(register));
+			let entry = self.extract_reg(register).into();
+			substitution.insert(var, entry);
 		}
 
-		substitution
+		substitution.into()
 	}
 }

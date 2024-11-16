@@ -7,10 +7,8 @@ use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
 
 use crate::{
-	ast::{Functor, Structure, Term},
-	display_iter, indent,
-	util::Sorted,
-	ExtractSubstitution, VarRegister,
+	ast::{Constant, Functor, Structure, Term},
+	display_iter, display_map, indent, ExtractSubstitution, VarRegister,
 };
 
 use super::L0Instruction;
@@ -57,7 +55,7 @@ enum Cell {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
-#[display("{}", _0.iter().map(|(x, c)| format!("{x} = {c}")).collect::<Vec<_>>().sorted().join("\n"),)]
+#[display("{}", display_map!(_0, "\n", "{} = {}"))]
 struct VarRegisters(HashMap<VarRegister, Cell>);
 
 impl VarRegisters {
@@ -152,6 +150,8 @@ impl M0 {
 		match self.read_store(address) {
 			Cell::REF(a) if address != *a => self.deref_term(Address::Heap(*a)),
 			Cell::STR(a) if address != *a => self.deref_term(Address::Heap(*a)),
+
+			Cell::Functor(Functor { name, arity }) if *arity == 0 => Some(Term::Constant(Constant(name.clone()))),
 
 			Cell::Functor(Functor { name, arity }) => Some(Term::Structure(Structure {
 				name: name.clone(),

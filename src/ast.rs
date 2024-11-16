@@ -103,8 +103,6 @@ pub enum Term {
 	Structure(Structure),
 }
 
-
-
 /// Represents a Prolog constant.
 ///
 /// Examples:
