@@ -1,10 +1,10 @@
 use std::fmt::{self, Debug, Display};
 
-use derive_more::derive::{Constructor, Display, From, Into, IntoIterator};
+use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Into, IntoIterator};
 
-use crate::{util::VecLike, vec_like};
-
-pub type Identifier = String;
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deref, DerefMut, Constructor, Display, From)]
+#[from(forward)]
+pub struct Identifier(String);
 
 /// Represents a Prolog clause, which is either a fact or a rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,14 +28,9 @@ impl Display for Clause {
 /// - `IsList(nil).`
 /// - `IsList(X).`
 /// - `append(X, Y, c).`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Constructor, Display, From, Into)]
+#[display("{_0}.")]
 pub struct Fact(pub Atom);
-
-impl Display for Fact {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.pad(&format!("{}.", self.0))
-	}
-}
 
 /// Represents a Prolog rule.
 ///
@@ -44,24 +39,23 @@ impl Display for Fact {
 /// Examples:
 /// - `path(X, Y) :- edge(X, Y).`
 /// - `Path(X, Z) :- edge(X, Y), Path(Y, Z).`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[display("{head} :- {body}.")]
 pub struct Rule {
 	pub head: Atom,
 	pub body: Atoms,
 }
 
-impl Display for Rule {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.pad(&format!("{} :- {}.", self.head, self.body))
-	}
-}
-
 /// Represents a sequence of atoms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into, IntoIterator)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, Into, IntoIterator)]
 #[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
 pub struct Atoms(Vec<Atom>);
 
-vec_like!(Atoms; Atom);
+impl Atoms {
+	pub fn new() -> Self {
+		Self(Vec::new())
+	}
+}
 
 /// Represents a Prolog atom.
 ///
@@ -70,18 +64,22 @@ vec_like!(Atoms; Atom);
 /// - `IsList(X)`
 /// - `append(X, Y, c)`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
-#[display("{}({})", self.name, self.terms)]
+#[display("{name}({terms})")]
 pub struct Atom {
 	pub name: Identifier,
 	pub terms: Terms,
 }
 
 /// Represents a sequence of terms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into, IntoIterator)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut)]
 #[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
 pub struct Terms(Vec<Term>);
 
-vec_like!(Terms; Term);
+impl Terms {
+	pub fn new() -> Self {
+		Self(Vec::new())
+	}
+}
 
 /// Represents a Prolog term.
 ///
@@ -128,7 +126,7 @@ pub struct Variable(pub Identifier);
 /// - `X`
 /// - `ABC`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
-#[display("{}({})", self.name, self.arguments)]
+#[display("{name}({arguments})")]
 pub struct Structure {
 	pub name: Identifier,
 	pub arguments: Terms,
@@ -137,7 +135,7 @@ pub struct Structure {
 type Arity = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
-#[display("{}/{}", self.name, self.arity)]
+#[display("{name}/{arity}")]
 pub struct Functor {
 	pub name: Identifier,
 	pub arity: Arity,
