@@ -1,6 +1,8 @@
 use std::fmt::{self, Debug, Display};
 
-use crate::sequence;
+use derive_more::derive::{Constructor, Display, From, Into, IntoIterator};
+
+use crate::{util::VecLike, vec_like};
 
 pub type Identifier = String;
 
@@ -55,10 +57,11 @@ impl Display for Rule {
 }
 
 /// Represents a sequence of atoms.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into, IntoIterator)]
+#[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
 pub struct Atoms(Vec<Atom>);
 
-sequence!(Atoms{Vec<Atom>});
+vec_like!(Atoms; Atom);
 
 /// Represents a Prolog atom.
 ///
@@ -66,23 +69,19 @@ sequence!(Atoms{Vec<Atom>});
 /// - `IsList(nil)`
 /// - `IsList(X)`
 /// - `append(X, Y, c)`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[display("{}({})", self.name, self.terms)]
 pub struct Atom {
 	pub name: Identifier,
 	pub terms: Terms,
 }
 
-impl Display for Atom {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.pad(&format!("{}({})", self.name, self.terms))
-	}
-}
-
 /// Represents a sequence of terms.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into, IntoIterator)]
+#[display("{}", _0.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join(", "),)]
 pub struct Terms(Vec<Term>);
 
-sequence!(Terms{Vec<Term>});
+vec_like!(Terms; Term);
 
 /// Represents a Prolog term.
 ///
@@ -94,21 +93,11 @@ sequence!(Terms{Vec<Term>});
 /// - `s(1, 2)`
 /// - `X`
 /// - `cons(1, Y)`
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, From)]
 pub enum Term {
 	Constant(Constant),
 	Variable(Variable),
 	Structure(Structure),
-}
-
-impl Display for Term {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Term::Constant(constant) => Display::fmt(&constant, f),
-			Term::Variable(variable) => Display::fmt(&variable, f),
-			Term::Structure(structure) => Display::fmt(&structure, f),
-		}
-	}
 }
 
 /// Represents a Prolog constant.
@@ -118,14 +107,8 @@ impl Display for Term {
 /// - `0`
 /// - `1`
 /// - `nil`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
 pub struct Constant(pub Identifier);
-
-impl Display for Constant {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		Display::fmt(&self.0, f)
-	}
-}
 
 /// Represents a Prolog variable.
 ///
@@ -134,14 +117,8 @@ impl Display for Constant {
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Constructor, Display, From, Into)]
 pub struct Variable(pub Identifier);
-
-impl Display for Variable {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		Display::fmt(&self.0, f)
-	}
-}
 
 /// Represents a Prolog structure.
 ///
@@ -150,21 +127,17 @@ impl Display for Variable {
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[display("{}({})", self.name, self.arguments)]
 pub struct Structure {
 	pub name: Identifier,
 	pub arguments: Terms,
 }
 
-impl Display for Structure {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.pad(&format!("{}({})", self.name, self.arguments))
-	}
-}
-
 type Arity = usize;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[display("{}/{}", self.name, self.arity)]
 pub struct Functor {
 	pub name: Identifier,
 	pub arity: Arity,

@@ -4,6 +4,7 @@ name    = "warren-abstract-machine"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.86"
-logos  = "0.14.0"
-velcro = "0.5.4"
+anyhow      = "1.0.86"
+derive_more = { version = "1.0.0", features = ["full"] }
+logos       = "0.14.0"
+velcro      = "0.5.4"

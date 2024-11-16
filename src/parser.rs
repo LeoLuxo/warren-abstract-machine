@@ -1,7 +1,10 @@
 use anyhow::{bail, ensure, Result};
 use logos::{Lexer, Logos};
 
-use crate::ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Terms, Variable};
+use crate::{
+	ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Terms, Variable},
+	util::VecLike,
+};
 
 /*
 --------------------------------------------------------------------------------
@@ -111,7 +114,7 @@ impl Parser<'_> {
 	}
 
 	fn parse_atoms(&mut self, minimum: Option<usize>) -> Result<Atoms> {
-		let mut atoms = Atoms::new();
+		let mut atoms = Atoms::new_empty();
 
 		loop {
 			atoms.push(self.parse_atom()?);
@@ -168,7 +171,7 @@ impl Parser<'_> {
 	}
 
 	fn parse_terms(&mut self, minimum: Option<usize>) -> Result<Terms> {
-		let mut terms = Terms::new();
+		let mut terms = Terms::new_empty();
 
 		loop {
 			terms.push(self.parse_term()?);
