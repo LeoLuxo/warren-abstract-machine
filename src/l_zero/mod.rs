@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr};
 
 use anyhow::{bail, Result};
+use derive_more::derive::Display;
 use machine::M0;
 
 use crate::{
@@ -74,8 +75,8 @@ impl Interpreter<L0> for L0Interpreter {
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
 		let (compiled_query, var_mapping) = query.compile_as_query();
 
-		println!("Query {}", &compiled_query);
-		println!("Program {}", &self.compiled_program);
+		println!("Query:\n{}", &compiled_query);
+		println!("Program:\n{}", &self.compiled_program);
 
 		let mut machine = M0::new();
 
@@ -84,12 +85,11 @@ impl Interpreter<L0> for L0Interpreter {
 
 		println!("{}", machine);
 
-		println!("{:?}", var_mapping);
+		println!("{}", var_mapping);
 
 		let substitution = machine.extract_mapping(var_mapping)?;
 
 		println!("{}", substitution);
-		println!("{:?}", substitution);
 
 		Ok(substitution)
 	}
@@ -101,6 +101,7 @@ impl Interpreter<L0> for L0Interpreter {
 --------------------------------------------------------------------------------
 */
 
+#[derive(Clone, Debug, PartialEq, Eq, Display)]
 pub enum FirstOrderTerm {
 	Constant(Constant),
 	Structure(Structure),

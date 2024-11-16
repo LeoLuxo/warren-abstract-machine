@@ -58,7 +58,9 @@ impl Successor for VarRegister {
 #[rustfmt::skip] impl AddAssign<usize> for VarRegister { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
 #[rustfmt::skip] impl SubAssign<usize> for VarRegister { fn sub_assign(&mut self, rhs: usize) { self.0 += rhs } }
 
-pub type RegisterMapping = HashMap<Variable, VarRegister>;
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct RegisterMapping(HashMap<Variable, VarRegister>);
 
 pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
@@ -90,7 +92,7 @@ pub trait Interpreter<L: Language>: Sized {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("Instructions:\n{}", indent!(display_iter!(_0, "\n")))]
+#[display("{}", display_iter!(_0, "\n"))]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Instructions<L: Language>(Vec<L::InstructionSet>);
 

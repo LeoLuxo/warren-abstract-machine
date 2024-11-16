@@ -225,6 +225,11 @@ mod tests {
 			"a(b(c), d(E)) :- f(g(h(I, j, K), L), m, N)."
 		);
 
+		assert_eq!(
+			format!("{}", "p(f(X), h(Y, f(a)), Y)".parse::<Term>()?),
+			"p(f(X), h(Y, f(a)), Y)"
+		);
+
 		Ok(())
 	}
 }

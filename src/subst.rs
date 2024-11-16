@@ -66,7 +66,7 @@ impl UnboundMapping {
 	pub fn get(&mut self, id: usize) -> UnboundIdentifier {
 		match self.map.entry(id) {
 			Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_id.incr()),
+			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_id.post_incr()),
 		}
 	}
 }

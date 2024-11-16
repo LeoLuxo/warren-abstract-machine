@@ -1,10 +1,15 @@
 pub trait Successor: Clone {
 	fn next(&self) -> Self;
 
-	fn incr(&mut self) -> Self {
+	fn post_incr(&mut self) -> Self {
 		let old = self.clone();
 		*self = self.next();
 		old
+	}
+
+	fn pre_incr(&mut self) -> Self {
+		*self = self.next();
+		self.clone()
 	}
 }
 
