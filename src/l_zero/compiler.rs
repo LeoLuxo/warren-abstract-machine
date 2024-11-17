@@ -1,9 +1,9 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet, VecDeque};
 
 use velcro::vec;
 
 use crate::{
-	ast::{Functor, GetFunctor, Term},
+	ast::{Functor, GetFunctor, Structure, Term},
 	CompilableProgram, CompilableQuery, Instructions, RegisterMapping, Successor, VarRegister,
 };
 
@@ -57,59 +57,75 @@ enum MappingToken {
 	VarRegister(VarRegister),
 }
 
-fn flatten_term(
-	term: Term,
-	variable_mapping: &mut RegisterMapping,
-	free_id: &mut VarRegister,
-	order: FlatteningOrder,
-) -> (VarRegister, Vec<MappingToken>) {
-	// Turns out it's not important that the register ids follow the exact order they have in the WAMbook
-	// The important part is that they respect two rules:
-	// - If a same variable already had an idea, then it must be assigned that same id
-	// - An id as a term argument must match the id of the subterm
-	// Anything else doesn't matter in the end
+fn flatten_term(outer_term: FirstOrderTerm, order: FlatteningOrder) -> (RegisterMapping, Vec<MappingToken>) {
+	let mut reg_mapping = RegisterMapping::default();
+	let mut free_id = VarRegister::default();
 
-	match term {
-		Term::Constant(constant) => {
-			let id = free_id.post_incr();
-			(id, vec![MappingToken::Functor(id, constant.get_functor())])
+	let outer_struct = match outer_term {
+		FirstOrderTerm::Structure(structure) => structure,
+
+		FirstOrderTerm::Constant(constant) => {
+			let tokens = vec![MappingToken::Functor(free_id.post_incr(), constant.get_functor())];
+			return (reg_mapping, tokens);
 		}
+	};
 
-		Term::Variable(variable) => {
-			let id = match variable_mapping.entry(variable) {
-				Entry::Occupied(e) => *e.get(),
-				Entry::Vacant(e) => *e.insert(free_id.post_incr()),
-			};
+	let mut struct_queue = VecDeque::new();
+	struct_queue.push_back(outer_struct);
 
-			(id, vec![])
-		}
+	let mut tokens = VecDeque::new();
 
-		Term::Structure(structure) => {
-			let term_id = free_id.post_incr();
-			let functor = structure.get_functor();
+	while let Some(structure) = struct_queue.pop_front() {
+		let functor = structure.get_functor();
 
-			let mut term_tokens = vec![MappingToken::Functor(term_id, functor)];
-			let mut subterm_tokens = vec![];
+		for subterm in structure.arguments {}
 
-			for subterm in structure.arguments {
-				let (subid, subtokens) = flatten_term(subterm, variable_mapping, free_id, order);
-
-				term_tokens.push(MappingToken::VarRegister(subid));
-				subterm_tokens.extend(subtokens);
-			}
-
-			let tokens = match order {
-				FlatteningOrder::BottomUp => {
-					vec![..subterm_tokens, ..term_tokens]
-				}
-				FlatteningOrder::TopDown => {
-					vec![..term_tokens, ..subterm_tokens]
-				}
-			};
-
-			(term_id, tokens)
-		}
+		tokens.push_front(MappingToken::Functor(free_id.post_incr(), functor));
 	}
+
+	todo!()
+
+	// match term {
+	// 	Term::Constant(constant) => {
+	// 		let id = free_id.post_incr();
+	// 		(id, vec![MappingToken::Functor(id, constant.get_functor())])
+	// 	}
+
+	// 	Term::Variable(variable) => {
+	// 		let id = match variable_mapping.entry(variable) {
+	// 			Entry::Occupied(e) => *e.get(),
+	// 			Entry::Vacant(e) => *e.insert(free_id.post_incr()),
+	// 		};
+
+	// 		(id, vec![])
+	// 	}
+
+	// 	Term::Structure(structure) => {
+	// 		let term_id = free_id.post_incr();
+	// 		let functor = structure.get_functor();
+
+	// 		let mut term_tokens = vec![MappingToken::Functor(term_id, functor)];
+	// 		let mut subterm_tokens = vec![];
+
+	// 		for subterm in structure.arguments {
+	// 			let (subid, subtokens) = flatten_term(subterm, variable_mapping, free_id, order);
+
+	// 			term_tokens.push(MappingToken::VarRegister(subid));
+	// 			subterm_tokens.extend(subtokens);
+	// 		}
+
+	// 		let tokens = match order {
+	// 			FlatteningOrder::BottomUp => {
+	// 				vec![..subterm_tokens, ..term_tokens]
+	// 			}
+	// 			FlatteningOrder::TopDown => {
+	// 				vec![..term_tokens, ..subterm_tokens]
+	// 			}
+	// 		};
+
+	// 		(term_id, tokens)
+	// 	}
+	// }
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {

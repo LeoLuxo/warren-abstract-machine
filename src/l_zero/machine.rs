@@ -168,6 +168,8 @@ impl M0 {
 	}
 
 	fn unify(&mut self, address1: Address, address2: Address) -> Result<()> {
+		dbg!(address1, address2);
+
 		let d1 = self.deref(address1);
 		let d2 = self.deref(address2);
 
