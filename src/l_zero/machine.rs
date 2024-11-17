@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::BTreeMap,
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
@@ -58,7 +58,7 @@ enum Cell {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
 #[display("{}", display_map!(_0, "\n", "{} = {}"))]
-struct VarRegisters(HashMap<VarRegister, Cell>);
+struct VarRegisters(BTreeMap<VarRegister, Cell>);
 
 impl VarRegisters {
 	pub fn set(&mut self, index: VarRegister, value: Cell) {

@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashSet, VecDeque};
+use std::collections::{btree_map, HashSet, VecDeque};
 
 use crate::{
 	ast::{Functor, GetFunctor, Term},
@@ -53,8 +53,8 @@ fn allocate_register_id(
 		Term::Structure(_) => reserved_ids.pre_incr(),
 
 		Term::Variable(variable) => match variable_mapping.entry(variable.clone()) {
-			Entry::Occupied(e) => *e.get(),
-			Entry::Vacant(e) => *e.insert(reserved_ids.pre_incr()),
+			btree_map::Entry::Occupied(e) => *e.get(),
+			btree_map::Entry::Vacant(e) => *e.insert(reserved_ids.pre_incr()),
 		},
 	}
 }

@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::BTreeMap,
 	fmt::Display,
 	ops::{Add, AddAssign, Sub, SubAssign},
 };
@@ -36,7 +36,7 @@ pub fn solve_single<L: Language>(program: L::Program, query: L::Query) -> Result
 --------------------------------------------------------------------------------
 */
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Display, From, Deref, DerefMut, Add, Sub)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display, From, Deref, DerefMut, Add, Sub)]
 #[from(forward)]
 #[display("X{_0}")]
 pub struct VarRegister(usize);
@@ -60,7 +60,7 @@ impl Successor for VarRegister {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
 #[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(HashMap<Variable, VarRegister>);
+pub struct VarToRegMapping(BTreeMap<Variable, VarRegister>);
 
 pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
