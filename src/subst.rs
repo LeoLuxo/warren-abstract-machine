@@ -1,13 +1,11 @@
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
-use anyhow::Result;
 use derive_more::derive::{Display, From};
 
 use crate::{
 	ast::{Constant, Structure, Variable},
 	display_map,
 	util::Successor,
-	VarRegister, VarToRegMapping,
 };
 
 /*
@@ -68,31 +66,31 @@ impl UnboundMapping {
 pub type SubstTargetMapping<Target> = BTreeMap<Variable, Target>;
 
 pub trait ExtractSubstitution {
-	type Target;
+	// type Target;
 
-	fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
-	fn extract_target(&self, target: Self::Target, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
+	// fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
+	// fn extract_target(&self, target: Self::Target, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
 
-	fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<SubstTargetMapping<Self::Target>> {
-		let mut target_mapping = BTreeMap::new();
+	// fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<SubstTargetMapping<Self::Target>> {
+	// 	let mut target_mapping = BTreeMap::new();
 
-		for (var, register) in mapping.into_iter() {
-			let target = self.find_target(register)?;
-			target_mapping.insert(var, target);
-		}
+	// 	for (var, register) in mapping.into_iter() {
+	// 		let target = self.find_target(register)?;
+	// 		target_mapping.insert(var, target);
+	// 	}
 
-		Ok(target_mapping)
-	}
+	// 	Ok(target_mapping)
+	// }
 
-	fn extract_substitution(&self, target_mapping: SubstTargetMapping<Self::Target>) -> Result<Substitution> {
-		let mut substitution = BTreeMap::new();
-		let mut unbound_map = UnboundMapping::default();
+	// fn extract_substitution(&self, target_mapping: SubstTargetMapping<Self::Target>) -> Result<Substitution> {
+	// 	let mut substitution = BTreeMap::new();
+	// 	let mut unbound_map = UnboundMapping::default();
 
-		for (var, target) in target_mapping.into_iter() {
-			let entry = self.extract_target(target, &mut unbound_map)?;
-			substitution.insert(var, entry);
-		}
+	// 	for (var, target) in target_mapping.into_iter() {
+	// 		let entry = self.extract_target(target, &mut unbound_map)?;
+	// 		substitution.insert(var, entry);
+	// 	}
 
-		Ok(substitution.into())
-	}
+	// 	Ok(substitution.into())
+	// }
 }

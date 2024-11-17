@@ -2,12 +2,11 @@ use std::{fmt, str::FromStr};
 
 use anyhow::{bail, Result};
 use derive_more::derive::Display;
-use machine::M0;
+use machine::{VarRegister, M0};
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	subst::ExtractSubstitution,
-	CompilableProgram, CompilableQuery, Instructions, Interpreter, Language, Substitution, VarRegister,
+	CompilableProgram, CompilableQuery, Compiled, Interpreter, Language, Substitution,
 };
 
 /*
@@ -16,8 +15,9 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
-mod compiler;
-mod machine;
+// TODO: make private again
+pub mod compiler;
+pub mod machine;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0;
@@ -55,11 +55,11 @@ impl fmt::Display for L0Instruction {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
-	compiled_program: Instructions<L0>,
+	compiled_program: Compiled<L0>,
 }
 
 impl L0Interpreter {
-	fn new(compiled_program: Instructions<L0>) -> Self {
+	fn new(compiled_program: Compiled<L0>) -> Self {
 		Self {
 			compiled_program,
 			..Default::default()
@@ -73,23 +73,20 @@ impl Interpreter<L0> for L0Interpreter {
 	}
 
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
-		let (compiled_query, var_mapping) = query.compile_as_query();
-		println!("{}", var_mapping);
+		let compiled_query = query.compile_as_query();
 
 		let mut machine = M0::new();
 
-		println!("Query:\n{}", &compiled_query);
-		machine.execute(&compiled_query)?;
+		machine.execute(&compiled_query.instructions)?;
+
+		// let pre_substitution = machine.pre_extract_targets(compiled_query.var_mapping)?;
+
+		machine.execute(&self.compiled_program.instructions)?;
+
+		// let substitution = machine.extract_substitution(pre_substitution)?;
+		let substitution = todo!();
+
 		println!("{}", machine);
-
-		let pre_substitution = machine.pre_extract_targets(var_mapping)?;
-
-		println!("Program:\n{}", &self.compiled_program);
-		machine.execute(&self.compiled_program)?;
-		println!("{}", machine);
-
-		let substitution = machine.extract_substitution(pre_substitution)?;
-
 		println!("{}", substitution);
 
 		Ok(substitution)

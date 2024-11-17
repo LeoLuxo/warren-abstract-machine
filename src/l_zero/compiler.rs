@@ -1,11 +1,13 @@
-use std::collections::{btree_map, HashSet, VecDeque};
+use std::collections::{btree_map, BTreeMap, HashSet, VecDeque};
+
+use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Functor, GetFunctor, Term},
-	CompilableProgram, CompilableQuery, Instructions, Successor, VarRegister, VarToRegMapping,
+	ast::{Functor, GetFunctor, Term, Variable},
+	display_map, CompilableProgram, CompilableQuery, Compiled, Successor,
 };
 
-use super::{FirstOrderTerm, L0Instruction, L0};
+use super::{machine::VarRegister, FirstOrderTerm, L0Instruction, L0};
 
 /*
 --------------------------------------------------------------------------------
@@ -14,20 +16,26 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 */
 
 impl CompilableProgram<L0> for FirstOrderTerm {
-	fn compile_as_program(self) -> Instructions<L0> {
-		let tokens = flatten_program_term(self);
+	fn compile_as_program(self) -> Compiled<L0> {
+		let (tokens, var_mapping) = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
-		instructions.into()
+		Compiled {
+			instructions,
+			var_mapping,
+		}
 	}
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> (Instructions<L0>, VarToRegMapping) {
+	fn compile_as_query(self) -> Compiled<L0> {
 		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 
-		(instructions.into(), var_mapping)
+		Compiled {
+			instructions,
+			var_mapping,
+		}
 	}
 }
 
@@ -42,6 +50,10 @@ enum MappingToken {
 	Functor(VarRegister, Functor),
 	VarRegister(VarRegister),
 }
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct VarToRegMapping(BTreeMap<Variable, VarRegister>);
 
 fn allocate_register_id(
 	term: &Term,
@@ -131,6 +143,7 @@ fn flatten_term(
 
 fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
 	let mut var_mapping = VarToRegMapping::default();
+
 	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
@@ -142,14 +155,18 @@ fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMappi
 	(tokens, var_mapping)
 }
 
-fn flatten_program_term(term: FirstOrderTerm) -> Vec<MappingToken> {
-	flatten_term(
+fn flatten_program_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
+	let mut var_mapping = VarToRegMapping::default();
+
+	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
-		&mut VarToRegMapping::default(),
+		&mut var_mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::TopDown,
-	)
+	);
+
+	(tokens, var_mapping)
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
@@ -209,7 +226,7 @@ mod tests {
 		assert_eq!(
 			flatten_query_term("c".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "c".into(), arity: 0 })
+				MappingToken::Functor(1usize.into(), Functor { name: "c".into(), arity: 0 })
 			]
 		);
 
@@ -217,12 +234,12 @@ mod tests {
 		assert_eq!(
 			flatten_query_term("p(X,Y,Z,Y,X)".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 5 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(2)),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 5 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(2usize.into()),
 			]
 		);
 
@@ -230,18 +247,18 @@ mod tests {
 		assert_eq!(
 			flatten_query_term("p(f(X), h(Y, f(a)), Y)".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(2), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(7)),
-				MappingToken::Functor(VarRegister(6), Functor { name: "a".into(), arity: 0 }),
-				MappingToken::Functor(VarRegister(5), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(6)),
-				MappingToken::Functor(VarRegister(3), Functor { name: "h".into(), arity: 2 }),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 3 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
+				MappingToken::Functor(2usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(7usize.into()),
+				MappingToken::Functor(6usize.into(), Functor { name: "a".into(), arity: 0 }),
+				MappingToken::Functor(5usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(6usize.into()),
+				MappingToken::Functor(3usize.into(), Functor { name: "h".into(), arity: 2 }),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::VarRegister(5usize.into()),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 3 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
 			]
 		);
 
@@ -249,15 +266,15 @@ mod tests {
 		assert_eq!(
 			flatten_query_term("p(Z, h(Z,W), f(W))".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(3), Functor { name: "h".into(), arity: 2 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(4), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 3 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
+				MappingToken::Functor(3usize.into(), Functor { name: "h".into(), arity: 2 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(5usize.into()),
+				MappingToken::Functor(4usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(5usize.into()),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 3 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
 			]
 		);
 
@@ -268,57 +285,57 @@ mod tests {
 	fn test_flatten_program_term() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("c".parse()?),
+			flatten_program_term("c".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "c".into(), arity: 0 })
+				MappingToken::Functor(1usize.into(), Functor { name: "c".into(), arity: 0 })
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(X,Y,Z,Y,X)".parse()?),
+			flatten_program_term("p(X,Y,Z,Y,X)".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 5 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(2)),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 5 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(2usize.into()),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(f(X), h(Y, f(a)), Y)".parse()?),
+			flatten_program_term("p(f(X), h(Y, f(a)), Y)".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 3 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::Functor(VarRegister(2), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(3), Functor { name: "h".into(), arity: 2 }),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::VarRegister(VarRegister(6)),
-				MappingToken::Functor(VarRegister(6), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(7)),
-				MappingToken::Functor(VarRegister(7), Functor { name: "a".into(), arity: 0 }),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 3 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::Functor(2usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(5usize.into()),
+				MappingToken::Functor(3usize.into(), Functor { name: "h".into(), arity: 2 }),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::VarRegister(6usize.into()),
+				MappingToken::Functor(6usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(7usize.into()),
+				MappingToken::Functor(7usize.into(), Functor { name: "a".into(), arity: 0 }),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(Z, h(Z,W), f(W))".parse()?),
+			flatten_program_term("p(Z, h(Z,W), f(W))".parse()?).0,
 			vec![
-				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 3 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(3)),
-				MappingToken::VarRegister(VarRegister(4)),
-				MappingToken::Functor(VarRegister(3), Functor { name: "h".into(), arity: 2 }),
-				MappingToken::VarRegister(VarRegister(2)),
-				MappingToken::VarRegister(VarRegister(5)),
-				MappingToken::Functor(VarRegister(4), Functor { name: "f".into(), arity: 1 }),
-				MappingToken::VarRegister(VarRegister(5)),
+				MappingToken::Functor(1usize.into(), Functor { name: "p".into(), arity: 3 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(3usize.into()),
+				MappingToken::VarRegister(4usize.into()),
+				MappingToken::Functor(3usize.into(), Functor { name: "h".into(), arity: 2 }),
+				MappingToken::VarRegister(2usize.into()),
+				MappingToken::VarRegister(5usize.into()),
+				MappingToken::Functor(4usize.into(), Functor { name: "f".into(), arity: 1 }),
+				MappingToken::VarRegister(5usize.into()),
 			]
 		);
 
@@ -331,22 +348,21 @@ mod tests {
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)"
 				.parse::<FirstOrderTerm>()?
-				.compile_as_program(),
+				.compile_as_program().instructions,
 			vec![
-				L0Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, VarRegister(1) ),
-				L0Instruction::UnifyVariable(VarRegister(2)),
-				L0Instruction::UnifyVariable(VarRegister(3)),
-				L0Instruction::UnifyVariable(VarRegister(4)),
-				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, VarRegister(2) ),
-				L0Instruction::UnifyVariable(VarRegister(5)),
-				L0Instruction::GetStructure(Functor { name: "h".into(), arity: 2 }, VarRegister(3) ),
-				L0Instruction::UnifyValue(VarRegister(4)),
-				L0Instruction::UnifyVariable(VarRegister(6)),
-				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, VarRegister(6) ),
-				L0Instruction::UnifyVariable(VarRegister(7)),
-				L0Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, VarRegister(7) ),
+				L0Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, 1usize.into() ),
+				L0Instruction::UnifyVariable(2usize.into()),
+				L0Instruction::UnifyVariable(3usize.into()),
+				L0Instruction::UnifyVariable(4usize.into()),
+				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 2usize.into() ),
+				L0Instruction::UnifyVariable(5usize.into()),
+				L0Instruction::GetStructure(Functor { name: "h".into(), arity: 2 }, 3usize.into() ),
+				L0Instruction::UnifyValue(4usize.into()),
+				L0Instruction::UnifyVariable(6usize.into()),
+				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 6usize.into() ),
+				L0Instruction::UnifyVariable(7usize.into()),
+				L0Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, 7usize.into() ),
 			]
-			.into()
 		);
 
 		Ok(())
@@ -358,19 +374,18 @@ mod tests {
 		assert_eq!(
 			"p(Z, h(Z,W), f(W))"
 				.parse::<FirstOrderTerm>()?
-				.compile_as_query().0,
+				.compile_as_query().instructions,
 			vec![
-				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, VarRegister(3) ),
-				L0Instruction::SetVariable(VarRegister(2)),
-				L0Instruction::SetVariable(VarRegister(5)),
-				L0Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, VarRegister(4) ),
-				L0Instruction::SetValue(VarRegister(5)),
-				L0Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, VarRegister(1) ),
-				L0Instruction::SetValue(VarRegister(2)),
-				L0Instruction::SetValue(VarRegister(3)),
-				L0Instruction::SetValue(VarRegister(4)),
+				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3usize.into() ),
+				L0Instruction::SetVariable(2usize.into()),
+				L0Instruction::SetVariable(5usize.into()),
+				L0Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, 4usize.into() ),
+				L0Instruction::SetValue(5usize.into()),
+				L0Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, 1usize.into() ),
+				L0Instruction::SetValue(2usize.into()),
+				L0Instruction::SetValue(3usize.into()),
+				L0Instruction::SetValue(4usize.into()),
 			]
-			.into()
 		);
 
 		Ok(())

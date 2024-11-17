@@ -1,16 +1,15 @@
 use std::{
-	collections::BTreeMap,
+	collections::{BTreeMap},
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
 use anyhow::{bail, Result};
-use derive_more::derive::{Deref, DerefMut, Display, From, Into, IntoIterator};
+use derive_more::derive::{Add, Deref, DerefMut, Display, From, Into, IntoIterator, Sub};
 
 use crate::{
-	ast::{Constant, Functor, Structure},
+	ast::{Functor},
 	display_iter, display_map, enumerate, indent,
-	subst::{ExtractSubstitution, SubstTerm, UnboundMapping},
-	VarRegister,
+	util::Successor,
 };
 
 use super::L0Instruction;
@@ -55,6 +54,28 @@ enum Cell {
 
 	Functor(Functor),
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display, From, Deref, DerefMut, Add, Sub)]
+#[from(forward)]
+#[display("X{_0}")]
+pub struct VarRegister(usize);
+
+impl Default for VarRegister {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
+impl Successor for VarRegister {
+	fn next(&self) -> Self {
+		Self(self.0 + 1)
+	}
+}
+
+#[rustfmt::skip] impl Add<usize> for VarRegister { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+#[rustfmt::skip] impl Sub<usize> for VarRegister { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
+#[rustfmt::skip] impl AddAssign<usize> for VarRegister { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
+#[rustfmt::skip] impl SubAssign<usize> for VarRegister { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
 #[display("{}", display_map!(_0, "\n", "{} = {}"))]
@@ -278,36 +299,36 @@ impl M0 {
 --------------------------------------------------------------------------------
 */
 
-impl ExtractSubstitution for M0 {
-	type Target = HeapAddress;
+// impl ExtractSubstitution for M0 {
+// 	type Target = HeapAddress;
 
-	fn find_target(&self, reg: VarRegister) -> Result<Self::Target> {
-		match &self.var_registers[reg] {
-			Cell::REF(heap_address) => Ok(*heap_address),
-			Cell::STR(heap_address) => Ok(*heap_address),
+// 	fn find_target(&self, reg: VarRegister) -> Result<Self::Target> {
+// 		match &self.var_registers[reg] {
+// 			Cell::REF(heap_address) => Ok(*heap_address),
+// 			Cell::STR(heap_address) => Ok(*heap_address),
 
-			_ => bail!("Found functor in variable registers, cannot extract substitution"),
-		}
-	}
+// 			_ => bail!("Found functor in variable registers, cannot extract substitution. This might be a bug."),
+// 		}
+// 	}
 
-	fn extract_target(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
-		match &self.heap[address] {
-			Cell::REF(a) if address != *a => self.extract_target(*a, unbound_map),
-			Cell::STR(a) if address != *a => self.extract_target(*a, unbound_map),
+// 	fn extract_target(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
+// 		match &self.heap[address] {
+// 			Cell::REF(a) if address != *a => self.extract_target(*a, unbound_map),
+// 			Cell::STR(a) if address != *a => self.extract_target(*a, unbound_map),
 
-			Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
+// 			Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
 
-			Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
+// 			Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
 
-			Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
-				name: name.clone(),
-				arguments: (1..=*arity)
-					.map(|i| self.extract_target(address + i, unbound_map))
-					.collect::<Result<Vec<_>>>()?
-					.into(),
-			})),
+// 			Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
+// 				name: name.clone(),
+// 				arguments: (1..=*arity)
+// 					.map(|i| self.extract_target(address + i, unbound_map))
+// 					.collect::<Result<Vec<_>>>()?
+// 					.into(),
+// 			})),
 
-			_ => bail!("Machine yielded an invalid substitution, this might be a bug."),
-		}
-	}
-}
+// 			_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
+// 		}
+// 	}
+// }
