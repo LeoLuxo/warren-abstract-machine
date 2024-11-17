@@ -3,11 +3,17 @@ use std::{
 	fmt::{self, Debug, Display},
 };
 
-use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Index, IndexMut, Into, IntoIterator};
+use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::display_iter;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deref, DerefMut, Constructor, Display, From)]
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut, Constructor, Display, From)]
 #[from(forward)]
 pub struct Identifier(Cow<'static, str>);
 
@@ -33,7 +39,7 @@ impl Display for Clause {
 /// - `IsList(nil).`
 /// - `IsList(X).`
 /// - `append(X, Y, c).`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Constructor, Display, From)]
 #[display("{_0}.")]
 pub struct Fact(pub Atom);
 
@@ -44,7 +50,7 @@ pub struct Fact(pub Atom);
 /// Examples:
 /// - `path(X, Y) :- edge(X, Y).`
 /// - `Path(X, Z) :- edge(X, Y), Path(Y, Z).`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
 #[display("{head} :- {body}.")]
 pub struct Rule {
 	pub head: Atom,
@@ -52,7 +58,7 @@ pub struct Rule {
 }
 
 /// Represents a sequence of atoms.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, Into, IntoIterator, Index, IndexMut)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, IntoIterator, Index, IndexMut)]
 #[display("{}", display_iter!(_0, ", "))]
 pub struct Atoms(Vec<Atom>);
 
@@ -68,7 +74,7 @@ impl Atoms {
 /// - `IsList(nil)`
 /// - `IsList(X)`
 /// - `append(X, Y, c)`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
 #[display("{name}({terms})")]
 pub struct Atom {
 	pub name: Identifier,
@@ -76,7 +82,7 @@ pub struct Atom {
 }
 
 /// Represents a sequence of terms.
-#[derive(Clone, Debug, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut, Index, IndexMut)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, From, IntoIterator, Deref, DerefMut, Index, IndexMut)]
 #[display("{}", display_iter!(_0, ", "))]
 #[display(bounds(T: Display))]
 pub struct Terms<T = Term>(Vec<T>);
@@ -117,7 +123,8 @@ pub enum Term {
 /// - `0`
 /// - `1`
 /// - `nil`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
+#[from(forward)]
 pub struct Constant(pub Identifier);
 
 /// Represents a Prolog variable.
@@ -127,7 +134,8 @@ pub struct Constant(pub Identifier);
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor, Display, From)]
+#[from(forward)]
 pub struct Variable(pub Identifier);
 
 /// Represents a Prolog structure.
@@ -137,7 +145,7 @@ pub struct Variable(pub Identifier);
 /// - `Var`
 /// - `X`
 /// - `ABC`
-#[derive(Clone, Debug, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor, Display, From)]
 #[display("{name}({arguments})")]
 pub struct Structure<T = Term> {
 	pub name: Identifier,
@@ -155,7 +163,7 @@ impl<T> Default for Structure<T> {
 
 type Arity = usize;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From, Into)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
 #[display("{name}/{arity}")]
 pub struct Functor {
 	pub name: Identifier,

@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 use anyhow::Result;
 use derive_more::derive::{Display, From};
@@ -18,13 +18,14 @@ use crate::{
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
 #[display("{{ {} }}", display_map!(_0))]
-pub struct Substitution(HashMap<Variable, SubstTerm>);
+pub struct Substitution(BTreeMap<Variable, SubstTerm>);
 
 // #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
 // #[display("{}", _0.as_ref().map_or("(unbound)".to_string(), |t| format!("{}", t)))]
 // pub struct SubstitutionEntry(Option<Term>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Display, From)]
+#[from(forward)]
 pub enum SubstTerm {
 	Constant(Constant),
 	Unbound(UnboundIdentifier),
@@ -32,27 +33,20 @@ pub enum SubstTerm {
 	Structure(Structure<SubstTerm>),
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, From, Display)]
-#[display("?{}", format_unbound_identifier(*_0))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, From, Display)]
+#[display("?{}", _0)]
+#[from(forward)]
 pub struct UnboundIdentifier(u32);
-
-fn format_unbound_identifier(mut x: u32) -> String {
-	let mut result = Vec::new();
-	loop {
-		let d = x % 26;
-		x /= 26;
-
-		result.push(std::char::from_u32(d + 0x61).unwrap());
-		if x <= 0 {
-			break;
-		}
-	}
-	result.into_iter().rev().collect()
-}
 
 impl Successor for UnboundIdentifier {
 	fn next(&self) -> Self {
 		Self(self.0 + 1)
+	}
+}
+
+impl Default for UnboundIdentifier {
+	fn default() -> Self {
+		Self(1)
 	}
 }
 
@@ -71,14 +65,16 @@ impl UnboundMapping {
 	}
 }
 
+pub type SubstTargetMapping<Target> = BTreeMap<Variable, Target>;
+
 pub trait ExtractSubstitution {
 	type Target;
 
 	fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
 	fn extract_target(&self, target: Self::Target, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
 
-	fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<HashMap<Variable, Self::Target>> {
-		let mut target_mapping = HashMap::new();
+	fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<SubstTargetMapping<Self::Target>> {
+		let mut target_mapping = BTreeMap::new();
 
 		for (var, register) in mapping.into_iter() {
 			let target = self.find_target(register)?;
@@ -88,8 +84,8 @@ pub trait ExtractSubstitution {
 		Ok(target_mapping)
 	}
 
-	fn extract_substitution(&self, target_mapping: HashMap<Variable, Self::Target>) -> Result<Substitution> {
-		let mut substitution = HashMap::new();
+	fn extract_substitution(&self, target_mapping: SubstTargetMapping<Self::Target>) -> Result<Substitution> {
+		let mut substitution = BTreeMap::new();
 		let mut unbound_map = UnboundMapping::default();
 
 		for (var, target) in target_mapping.into_iter() {

@@ -141,7 +141,7 @@ impl M0 {
 		Ok(())
 	}
 
-	pub fn read_store(&self, address: Address) -> &Cell {
+	fn read_store(&self, address: Address) -> &Cell {
 		match address {
 			Address::Register(var_register) => &self.var_registers[var_register],
 			Address::Heap(heap_address) => &self.heap[heap_address],
