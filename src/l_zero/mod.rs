@@ -74,18 +74,17 @@ impl Interpreter<L0> for L0Interpreter {
 
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
 		let (compiled_query, var_mapping) = query.compile_as_query();
-
-		println!("Query:\n{}", &compiled_query);
-		println!("Program:\n{}", &self.compiled_program);
+		println!("{}", var_mapping);
 
 		let mut machine = M0::new();
 
+		println!("Query:\n{}", &compiled_query);
 		machine.execute(&compiled_query)?;
-		machine.execute(&self.compiled_program)?;
-
 		println!("{}", machine);
 
-		println!("{}", var_mapping);
+		println!("Program:\n{}", &self.compiled_program);
+		machine.execute(&self.compiled_program)?;
+		println!("{}", machine);
 
 		let substitution = machine.extract_mapping(var_mapping)?;
 

@@ -1,6 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet, VecDeque};
-
-use velcro::{iter, vec};
+use std::collections::{hash_map::Entry, HashSet, VecDeque};
 
 use crate::{
 	ast::{Functor, GetFunctor, Term},
@@ -145,15 +143,13 @@ fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMappi
 }
 
 fn flatten_program_term(term: FirstOrderTerm) -> Vec<MappingToken> {
-	let tokens = flatten_term(
+	flatten_term(
 		VarRegister::default(),
 		term.into(),
 		&mut VarToRegMapping::default(),
 		&mut VarRegister::default(),
 		FlatteningOrder::TopDown,
-	);
-
-	tokens
+	)
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
@@ -161,17 +157,14 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 	let mut encountered = HashSet::new();
 
 	for token in tokens {
-		let inst = match token {
-			MappingToken::Functor(var, functor) => L0Instruction::PutStructure(functor, var),
-
-			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
-				encountered.insert(var);
-				L0Instruction::SetVariable(var)
-			}
-
-			MappingToken::VarRegister(var) => L0Instruction::SetValue(var),
+		#[rustfmt::skip]
+		let (reg, inst) = match token {
+			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::PutStructure(functor, reg)),
+			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::SetValue(reg)),
+			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::SetVariable(reg)),
 		};
 
+		encountered.insert(reg);
 		instructions.push(inst);
 	}
 
@@ -183,17 +176,14 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 	let mut encountered = HashSet::new();
 
 	for token in tokens {
-		let inst = match token {
-			MappingToken::Functor(var, functor) => L0Instruction::GetStructure(functor, var),
-
-			MappingToken::VarRegister(var) if !encountered.contains(&var) => {
-				encountered.insert(var);
-				L0Instruction::UnifyVariable(var)
-			}
-
-			MappingToken::VarRegister(var) => L0Instruction::UnifyValue(var),
+		#[rustfmt::skip]
+		let (reg, inst) = match token {
+			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::GetStructure(functor, reg)),
+			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::UnifyValue(reg)),
+			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::UnifyVariable(reg)),
 		};
 
+		encountered.insert(reg);
 		instructions.push(inst);
 	}
 
@@ -355,6 +345,30 @@ mod tests {
 				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, VarRegister(6) ),
 				L0Instruction::UnifyVariable(VarRegister(7)),
 				L0Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, VarRegister(7) ),
+			]
+			.into()
+		);
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_compile_query() -> Result<()> {
+		#[rustfmt::skip]
+		assert_eq!(
+			"p(Z, h(Z,W), f(W))"
+				.parse::<FirstOrderTerm>()?
+				.compile_as_query().0,
+			vec![
+				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, VarRegister(3) ),
+				L0Instruction::SetVariable(VarRegister(2)),
+				L0Instruction::SetVariable(VarRegister(5)),
+				L0Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, VarRegister(4) ),
+				L0Instruction::SetValue(VarRegister(5)),
+				L0Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, VarRegister(1) ),
+				L0Instruction::SetValue(VarRegister(2)),
+				L0Instruction::SetValue(VarRegister(3)),
+				L0Instruction::SetValue(VarRegister(4)),
 			]
 			.into()
 		);

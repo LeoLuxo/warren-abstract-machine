@@ -177,10 +177,7 @@ impl M0 {
 			return Ok(());
 		}
 
-		let c1 = self.read_store(d1);
-		let c2 = self.read_store(d2);
-
-		match (c1, c2) {
+		match (self.read_store(d1), self.read_store(d2)) {
 			(Cell::REF(_), _) | (_, Cell::REF(_)) => {
 				self.bind(d1, d2)?;
 			}
