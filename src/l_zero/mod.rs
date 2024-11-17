@@ -82,11 +82,13 @@ impl Interpreter<L0> for L0Interpreter {
 		machine.execute(&compiled_query)?;
 		println!("{}", machine);
 
+		let pre_substitution = machine.pre_extract_targets(var_mapping)?;
+
 		println!("Program:\n{}", &self.compiled_program);
 		machine.execute(&self.compiled_program)?;
 		println!("{}", machine);
 
-		let substitution = machine.extract_mapping(var_mapping)?;
+		let substitution = machine.extract_substitution(pre_substitution)?;
 
 		println!("{}", substitution);
 

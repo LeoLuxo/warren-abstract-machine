@@ -72,14 +72,28 @@ impl UnboundMapping {
 }
 
 pub trait ExtractSubstitution {
-	fn extract_reg(&self, reg: VarRegister, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
+	type Target;
 
-	fn extract_mapping(&self, mapping: VarToRegMapping) -> Result<Substitution> {
+	fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
+	fn extract_target(&self, target: Self::Target, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
+
+	fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<HashMap<Variable, Self::Target>> {
+		let mut target_mapping = HashMap::new();
+
+		for (var, register) in mapping.into_iter() {
+			let target = self.find_target(register)?;
+			target_mapping.insert(var, target);
+		}
+
+		Ok(target_mapping)
+	}
+
+	fn extract_substitution(&self, target_mapping: HashMap<Variable, Self::Target>) -> Result<Substitution> {
 		let mut substitution = HashMap::new();
 		let mut unbound_map = UnboundMapping::default();
 
-		for (var, register) in mapping.into_iter() {
-			let entry = self.extract_reg(register, &mut unbound_map)?;
+		for (var, target) in target_mapping.into_iter() {
+			let entry = self.extract_target(target, &mut unbound_map)?;
 			substitution.insert(var, entry);
 		}
 

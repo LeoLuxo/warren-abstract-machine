@@ -21,7 +21,7 @@ use super::L0Instruction;
 --------------------------------------------------------------------------------
 */
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Display)]
 enum Address {
 	Register(VarRegister),
 	Heap(HeapAddress),
@@ -38,7 +38,7 @@ enum Address {
 #[rustfmt::skip] impl SubAssign<usize> for Address { fn sub_assign(&mut self, rhs: usize)  {  match self { Address::Register(var_register) => *var_register -= rhs, Address::Heap(heap_address) => *heap_address -= rhs, } } }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut)]
-struct HeapAddress(usize);
+pub struct HeapAddress(usize);
 
 #[rustfmt::skip] impl Add<usize> for HeapAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
 #[rustfmt::skip] impl Sub<usize> for HeapAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
@@ -141,7 +141,7 @@ impl M0 {
 		Ok(())
 	}
 
-	fn read_store(&self, address: Address) -> &Cell {
+	pub fn read_store(&self, address: Address) -> &Cell {
 		match address {
 			Address::Register(var_register) => &self.var_registers[var_register],
 			Address::Heap(heap_address) => &self.heap[heap_address],
@@ -168,8 +168,6 @@ impl M0 {
 	}
 
 	fn unify(&mut self, address1: Address, address2: Address) -> Result<()> {
-		dbg!(address1, address2);
-
 		let d1 = self.deref(address1);
 		let d2 = self.deref(address2);
 
@@ -274,11 +272,28 @@ impl M0 {
 	}
 }
 
-impl M0 {
-	fn deref_term(&self, address: Address, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
-		match self.read_store(address) {
-			Cell::REF(a) if address != *a => self.deref_term(Address::Heap(*a), unbound_map),
-			Cell::STR(a) if address != *a => self.deref_term(Address::Heap(*a), unbound_map),
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+impl ExtractSubstitution for M0 {
+	type Target = HeapAddress;
+
+	fn find_target(&self, reg: VarRegister) -> Result<Self::Target> {
+		match &self.var_registers[reg] {
+			Cell::REF(heap_address) => Ok(*heap_address),
+			Cell::STR(heap_address) => Ok(*heap_address),
+
+			_ => bail!("Found functor in variable registers, cannot extract substitution"),
+		}
+	}
+
+	fn extract_target(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
+		match &self.heap[address] {
+			Cell::REF(a) if address != *a => self.extract_target(*a, unbound_map),
+			Cell::STR(a) if address != *a => self.extract_target(*a, unbound_map),
 
 			Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
 
@@ -286,19 +301,13 @@ impl M0 {
 
 			Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
 				name: name.clone(),
-				arguments: (1..*arity)
-					.map(|i| self.deref_term(address + i, unbound_map))
+				arguments: (1..=*arity)
+					.map(|i| self.extract_target(address + i, unbound_map))
 					.collect::<Result<Vec<_>>>()?
 					.into(),
 			})),
 
 			_ => bail!("Machine yielded an invalid substitution, this might be a bug."),
 		}
-	}
-}
-
-impl ExtractSubstitution for M0 {
-	fn extract_reg(&self, reg: VarRegister, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
-		self.deref_term(Address::Register(reg), unbound_map)
 	}
 }
