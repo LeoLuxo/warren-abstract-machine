@@ -7,7 +7,7 @@ use crate::{
 	ast::{Constant, Structure, Variable},
 	display_map,
 	util::Successor,
-	RegisterMapping, VarRegister,
+	VarRegister, VarToRegMapping,
 };
 
 /*
@@ -74,7 +74,7 @@ impl UnboundMapping {
 pub trait ExtractSubstitution {
 	fn extract_reg(&self, reg: VarRegister, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
 
-	fn extract_mapping(&self, mapping: RegisterMapping) -> Result<Substitution> {
+	fn extract_mapping(&self, mapping: VarToRegMapping) -> Result<Substitution> {
 		let mut substitution = HashMap::new();
 		let mut unbound_map = UnboundMapping::default();
 

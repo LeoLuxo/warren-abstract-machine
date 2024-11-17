@@ -60,7 +60,7 @@ impl Successor for VarRegister {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
 #[display("{}", display_map!(_0))]
-pub struct RegisterMapping(HashMap<Variable, VarRegister>);
+pub struct VarToRegMapping(HashMap<Variable, VarRegister>);
 
 pub trait Language: Sized {
 	type Program: CompilableProgram<Self>;
@@ -74,7 +74,7 @@ pub trait CompilableProgram<L: Language> {
 }
 
 pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> (Instructions<L>, RegisterMapping);
+	fn compile_as_query(self) -> (Instructions<L>, VarToRegMapping);
 }
 
 pub trait Interpreter<L: Language>: Sized {

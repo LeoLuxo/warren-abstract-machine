@@ -1,10 +1,10 @@
 use std::collections::{hash_map::Entry, HashMap, HashSet, VecDeque};
 
-use velcro::vec;
+use velcro::{iter, vec};
 
 use crate::{
-	ast::{Functor, GetFunctor, Structure, Term},
-	CompilableProgram, CompilableQuery, Instructions, RegisterMapping, Successor, VarRegister,
+	ast::{Functor, GetFunctor, Term},
+	CompilableProgram, CompilableQuery, Instructions, Successor, VarRegister, VarToRegMapping,
 };
 
 use super::{FirstOrderTerm, L0Instruction, L0};
@@ -17,12 +17,7 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 
 impl CompilableProgram<L0> for FirstOrderTerm {
 	fn compile_as_program(self) -> Instructions<L0> {
-		let (_, tokens) = flatten_term(
-			self.into(),
-			&mut RegisterMapping::default(),
-			&mut VarRegister::default(),
-			FlatteningOrder::TopDown,
-		);
+		let tokens = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
 		instructions.into()
@@ -30,15 +25,8 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> (Instructions<L0>, RegisterMapping) {
-		let mut var_mapping = RegisterMapping::default();
-
-		let (_, tokens) = flatten_term(
-			self.into(),
-			&mut var_mapping,
-			&mut VarRegister::default(),
-			FlatteningOrder::BottomUp,
-		);
+	fn compile_as_query(self) -> (Instructions<L0>, VarToRegMapping) {
+		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 
 		(instructions.into(), var_mapping)
@@ -57,75 +45,95 @@ enum MappingToken {
 	VarRegister(VarRegister),
 }
 
-fn flatten_term(outer_term: FirstOrderTerm, order: FlatteningOrder) -> (RegisterMapping, Vec<MappingToken>) {
-	let mut reg_mapping = RegisterMapping::default();
-	let mut free_id = VarRegister::default();
+fn allocate_register_id(
+	term: &Term,
+	variable_mapping: &mut VarToRegMapping,
+	occupied_id: &mut VarRegister,
+) -> VarRegister {
+	match term {
+		Term::Constant(_) => occupied_id.pre_incr(),
+		Term::Structure(_) => occupied_id.pre_incr(),
 
-	let outer_struct = match outer_term {
-		FirstOrderTerm::Structure(structure) => structure,
-
-		FirstOrderTerm::Constant(constant) => {
-			let tokens = vec![MappingToken::Functor(free_id.post_incr(), constant.get_functor())];
-			return (reg_mapping, tokens);
-		}
-	};
-
-	let mut struct_queue = VecDeque::new();
-	struct_queue.push_back(outer_struct);
-
-	let mut tokens = VecDeque::new();
-
-	while let Some(structure) = struct_queue.pop_front() {
-		let functor = structure.get_functor();
-
-		for subterm in structure.arguments {}
-
-		tokens.push_front(MappingToken::Functor(free_id.post_incr(), functor));
+		Term::Variable(variable) => match variable_mapping.entry(variable.clone()) {
+			Entry::Occupied(e) => *e.get(),
+			Entry::Vacant(e) => *e.insert(occupied_id.pre_incr()),
+		},
 	}
+}
 
-	todo!()
+fn flatten_term(
+	id: VarRegister,
+	term: Term,
+	variable_mapping: &mut VarToRegMapping,
+	occupied_id: &mut VarRegister,
+	order: FlatteningOrder,
+) -> Vec<MappingToken> {
+	// Turns out it's not important that the register ids follow the exact order they have in the WAMbook
+	// The important part is that they respect two rules:
+	// - If a same variable already had an id, then it must be assigned that same id
+	// - An id as a term argument must match the id of the subterm
+	// Anything else doesn't matter in the end
 
-	// match term {
-	// 	Term::Constant(constant) => {
-	// 		let id = free_id.post_incr();
-	// 		(id, vec![MappingToken::Functor(id, constant.get_functor())])
-	// 	}
+	// But this algorithm preserves it anyway
 
-	// 	Term::Variable(variable) => {
-	// 		let id = match variable_mapping.entry(variable) {
-	// 			Entry::Occupied(e) => *e.get(),
-	// 			Entry::Vacant(e) => *e.insert(free_id.post_incr()),
-	// 		};
+	// TODO: Make imperative to avoid so many vec allocations?
 
-	// 		(id, vec![])
-	// 	}
+	match term {
+		Term::Variable(_) => vec![],
+		Term::Constant(constant) => vec![MappingToken::Functor(id, constant.get_functor())],
 
-	// 	Term::Structure(structure) => {
-	// 		let term_id = free_id.post_incr();
-	// 		let functor = structure.get_functor();
+		Term::Structure(structure) => {
+			let functor = structure.get_functor();
 
-	// 		let mut term_tokens = vec![MappingToken::Functor(term_id, functor)];
-	// 		let mut subterm_tokens = vec![];
+			let mut struct_tokens = vec![MappingToken::Functor(id, functor)];
+			let mut subterm_tokens = vec![];
 
-	// 		for subterm in structure.arguments {
-	// 			let (subid, subtokens) = flatten_term(subterm, variable_mapping, free_id, order);
+			for subterm in structure.arguments {
+				let sub_id = allocate_register_id(&subterm, variable_mapping, occupied_id);
+				struct_tokens.push(MappingToken::VarRegister(sub_id));
 
-	// 			term_tokens.push(MappingToken::VarRegister(subid));
-	// 			subterm_tokens.extend(subtokens);
-	// 		}
+				let subtokens = flatten_term(sub_id, subterm, variable_mapping, occupied_id, order);
 
-	// 		let tokens = match order {
-	// 			FlatteningOrder::BottomUp => {
-	// 				vec![..subterm_tokens, ..term_tokens]
-	// 			}
-	// 			FlatteningOrder::TopDown => {
-	// 				vec![..term_tokens, ..subterm_tokens]
-	// 			}
-	// 		};
+				subterm_tokens.extend(subtokens);
+			}
 
-	// 		(term_id, tokens)
-	// 	}
-	// }
+			let tokens = match order {
+				FlatteningOrder::BottomUp => {
+					vec![..subterm_tokens, ..struct_tokens]
+				}
+				FlatteningOrder::TopDown => {
+					vec![..struct_tokens, ..subterm_tokens]
+				}
+			};
+
+			tokens
+		}
+	}
+}
+
+fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
+	let mut var_mapping = VarToRegMapping::default();
+	let tokens = flatten_term(
+		VarRegister::default(),
+		term.into(),
+		&mut var_mapping,
+		&mut VarRegister::default(),
+		FlatteningOrder::BottomUp,
+	);
+
+	(tokens, var_mapping)
+}
+
+fn flatten_program_term(term: FirstOrderTerm) -> Vec<MappingToken> {
+	let tokens = flatten_term(
+		VarRegister::default(),
+		term.into(),
+		&mut VarToRegMapping::default(),
+		&mut VarRegister::default(),
+		FlatteningOrder::TopDown,
+	);
+
+	tokens
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
@@ -186,24 +194,16 @@ mod tests {
 	use velcro::vec;
 
 	#[test]
-	fn test_flatten_term_bottomup() -> Result<()> {
+	fn test_flatten_query_term() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term("c".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::BottomUp),
-			(VarRegister(0), vec![
-				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
-			])
+			flatten_query_term("c".parse()?).0,
+			vec![
+				MappingToken::Functor(VarRegister(1), Functor { name: "c".into(), arity: 0 })
+			]
 		);
 
-		panic!(
-			"{:#?}",
-			flatten_term(
-				"p(A,B(c),C)".parse()?,
-				&mut Default::default(),
-				&mut VarRegister(1),
-				FlatteningOrder::TopDown
-			)
-		);
+		panic!("{:#?}", flatten_query_term("p(A,B(c),C)".parse()?,).0);
 
 		// #[rustfmt::skip]
 		// assert_eq!(
@@ -245,13 +245,13 @@ mod tests {
 	}
 
 	#[test]
-	fn test_flatten_term_topdown() -> Result<()> {
+	fn test_flatten_program_term() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term("c".parse()?, &mut Default::default(), &mut VarRegister(0), FlatteningOrder::TopDown),
-			(VarRegister(0), vec![
+			flatten_program_term("c".parse()?),
+			vec![
 				MappingToken::Functor(VarRegister(0), Functor { name: "c".into(), arity: 0 })
-			])
+			]
 		);
 
 		// #[rustfmt::skip]
@@ -276,8 +276,8 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term("p(f(X), h(Y, f(a)), Y)".parse()?, &mut Default::default(), &mut VarRegister(1), FlatteningOrder::TopDown),
-			(VarRegister(1), vec![
+			flatten_program_term("p(f(X), h(Y, f(a)), Y)".parse()?),
+			vec![
 				MappingToken::Functor(VarRegister(1), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(VarRegister(2)),
 				MappingToken::VarRegister(VarRegister(3)),
@@ -290,7 +290,7 @@ mod tests {
 				MappingToken::Functor(VarRegister(6), Functor { name: "f".into(), arity: 1 }),
 				MappingToken::VarRegister(VarRegister(7)),
 				MappingToken::Functor(VarRegister(7), Functor { name: "a".into(), arity: 0 }),
-			])
+			]
 		);
 
 		Ok(())
