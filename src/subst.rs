@@ -1,8 +1,3 @@
-use std::collections::{hash_map::Entry, BTreeMap, HashMap};
-
-use anyhow::Result;
-use derive_more::derive::{Deref, DerefMut, Display, From};
-
 use crate::{
 	ast::{Constant, Structure, Variable},
 	display_map,
@@ -10,6 +5,9 @@ use crate::{
 	util::Successor,
 	Compiled, Language,
 };
+use anyhow::Result;
+use derive_more::derive::{Deref, DerefMut, Display, From};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 /*
 --------------------------------------------------------------------------------
@@ -70,8 +68,6 @@ impl UnboundMapping {
 		}
 	}
 }
-
-// pub type SubstTargetMapping<Target> = BTreeMap<Variable, Target>;
 
 impl<L: Language> Compiled<L> {
 	fn compute_var_heap_address(&self, register: VarRegister) -> Option<HeapAddress>
