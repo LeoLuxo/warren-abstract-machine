@@ -17,9 +17,8 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
-// TODO: make private again
-pub mod compiler;
-pub mod machine;
+mod compiler;
+mod machine;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0;
@@ -31,6 +30,50 @@ impl Language for L0 {
 	type InstructionSet = L0Instruction;
 	type Interpreter = L0Interpreter;
 }
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct L0Interpreter {
+	compiled_program: Compiled<L0>,
+}
+
+impl L0Interpreter {
+	fn new(compiled_program: Compiled<L0>) -> Self {
+		Self {
+			compiled_program,
+			..Default::default()
+		}
+	}
+}
+
+impl Interpreter<L0> for L0Interpreter {
+	fn from_program(program: FirstOrderTerm) -> Self {
+		Self::new(program.compile_as_program())
+	}
+
+	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
+		let compiled_query = query.compile_as_query();
+
+		let mut machine = M0::new();
+
+		machine.execute(&compiled_query.instructions)?;
+		machine.execute(&self.compiled_program.instructions)?;
+
+		let substitution = machine.extract_substitution(&compiled_query)?;
+
+		println!("{}", compiled_query);
+		println!("{}", self.compiled_program);
+		println!("{}", machine);
+		println!("{}", substitution);
+
+		Ok(substitution)
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum L0Instruction {
@@ -71,44 +114,6 @@ impl StaticMapping for L0Instruction {
 			L0Instruction::SetVariable(reg) if *reg == register => true,
 			_ => false,
 		}
-	}
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct L0Interpreter {
-	compiled_program: Compiled<L0>,
-}
-
-impl L0Interpreter {
-	fn new(compiled_program: Compiled<L0>) -> Self {
-		Self {
-			compiled_program,
-			..Default::default()
-		}
-	}
-}
-
-impl Interpreter<L0> for L0Interpreter {
-	fn from_program(program: FirstOrderTerm) -> Self {
-		Self::new(program.compile_as_program())
-	}
-
-	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
-		let compiled_query = query.compile_as_query();
-
-		let mut machine = M0::new();
-
-		machine.execute(&compiled_query.instructions)?;
-		machine.execute(&self.compiled_program.instructions)?;
-
-		let substitution = machine.extract_substitution(&compiled_query)?;
-
-		println!("{}", compiled_query);
-		println!("{}", self.compiled_program);
-		println!("{}", machine);
-		println!("{}", substitution);
-
-		Ok(substitution)
 	}
 }
 
