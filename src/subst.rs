@@ -88,7 +88,11 @@ impl<L: Language> Compiled<L> {
 			}
 
 			if instruction.static_variable_entry_point(register) {
-				return Some(heap_top);
+				if *heap_top > 0 {
+					return Some(heap_top - 1);
+				} else {
+					break;
+				}
 			}
 		}
 
