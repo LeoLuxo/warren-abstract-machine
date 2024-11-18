@@ -3,7 +3,9 @@ use std::{
 	fmt::{self, Debug, Display},
 };
 
-use derive_more::derive::{Constructor, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
+use derive_more::derive::{
+	Constructor, Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator, IsVariant, TryUnwrap,
+};
 
 use crate::display_iter;
 
@@ -18,7 +20,7 @@ use crate::display_iter;
 pub struct Identifier(Cow<'static, str>);
 
 /// Represents a Prolog clause, which is either a fact or a rule.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, IsVariant, TryUnwrap)]
 pub enum Clause {
 	Fact(Fact),
 	Rule(Rule),
@@ -109,7 +111,7 @@ impl<T> Default for Terms<T> {
 /// - `s(1, 2)`
 /// - `X`
 /// - `cons(1, Y)`
-#[derive(Clone, Debug, PartialEq, Eq, Display, From)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, From, IsVariant, TryUnwrap)]
 pub enum Term {
 	Constant(Constant),
 	Variable(Variable),

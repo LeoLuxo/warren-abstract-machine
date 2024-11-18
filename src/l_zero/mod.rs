@@ -76,10 +76,11 @@ impl Interpreter<L0> for L0Interpreter {
 */
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum L0Instruction {
+enum L0Instruction {
 	PutStructure(Functor, VarRegister),
 	SetVariable(VarRegister),
 	SetValue(VarRegister),
+
 	GetStructure(Functor, VarRegister),
 	UnifyVariable(VarRegister),
 	UnifyValue(VarRegister),

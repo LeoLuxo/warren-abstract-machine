@@ -1,10 +1,11 @@
-use std::fmt::Display;
+use std::{fmt::Display, marker::PhantomData};
 
 use anyhow::Result;
 use derive_more::derive::{Display, From};
 use machine_types::VarToRegMapping;
 use subst::Substitution;
 use util::Successor;
+use velcro::vec;
 
 /*
 --------------------------------------------------------------------------------
@@ -13,6 +14,7 @@ use util::Successor;
 */
 
 pub mod ast;
+pub mod l_one;
 pub mod l_zero;
 pub mod machine_types;
 pub mod parser;
@@ -55,26 +57,107 @@ pub trait Interpreter<L: Language>: Sized {
 }
 
 pub trait CompilableProgram<L: Language> {
-	fn compile_as_program(self) -> Compiled<L>;
+	fn compile_as_program(self) -> Compiled<L, false>;
 }
 
 pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> Compiled<L>;
+	fn compile_as_query(self) -> Compiled<L, true>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]
-#[display("{}\nwhere {}", display_iter!(instructions, "\n"), var_reg_mapping)]
+#[display("{}\n{}", display_iter!(instructions, "\n"), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
 #[display(bounds(L::InstructionSet: Display))]
-pub struct Compiled<L: Language> {
+pub struct Compiled<L: Language, const HasValidMapping: bool = false> {
 	pub instructions: Vec<L::InstructionSet>,
-	pub var_reg_mapping: VarToRegMapping,
+	var_reg_mapping: Option<VarToRegMapping>,
 }
 
-impl<L: Language> Default for Compiled<L> {
+impl<L: Language> Compiled<L, true> {
+	fn new(instructions: Vec<L::InstructionSet>, var_reg_mapping: VarToRegMapping) -> Self {
+		Self {
+			instructions,
+			var_reg_mapping: Some(var_reg_mapping),
+		}
+	}
+
+	pub fn get_var_reg_mapping(&self) -> VarToRegMapping {
+		self.var_reg_mapping
+			.clone()
+			.expect("Compiled<true> with invalid mapping encountered")
+	}
+
+	pub fn set_var_reg_mapping(&mut self, var_reg_mapping: VarToRegMapping) {
+		self.var_reg_mapping = Some(var_reg_mapping)
+	}
+
+	pub fn invalidate_mapping(self) -> Compiled<L, false> {
+		Compiled {
+			instructions: self.instructions,
+			var_reg_mapping: None,
+		}
+	}
+}
+
+impl<L: Language> Compiled<L, false> {
+	fn new(instructions: Vec<L::InstructionSet>) -> Self {
+		Self {
+			instructions,
+			var_reg_mapping: None,
+		}
+	}
+
+	pub fn give_mapping(self, var_reg_mapping: VarToRegMapping) -> Compiled<L, true> {
+		Compiled {
+			instructions: self.instructions,
+			var_reg_mapping: Some(var_reg_mapping),
+		}
+	}
+}
+
+impl<L: Language, const V: bool> Default for Compiled<L, V> {
 	fn default() -> Self {
 		Self {
 			instructions: Default::default(),
 			var_reg_mapping: Default::default(),
+		}
+	}
+}
+
+pub trait CombinableWith<Other> {
+	type Output;
+
+	fn combine(self, other: Other) -> Self::Output;
+}
+
+impl<L: Language> CombinableWith<Compiled<L, false>> for Compiled<L, false> {
+	type Output = Compiled<L, false>;
+
+	fn combine(self, other: Compiled<L, false>) -> Self::Output {
+		Self::Output {
+			instructions: vec![..self.instructions, ..other.instructions],
+			var_reg_mapping: None,
+		}
+	}
+}
+
+impl<L: Language> CombinableWith<Compiled<L, true>> for Compiled<L, false> {
+	type Output = Compiled<L, true>;
+
+	fn combine(self, other: Compiled<L, true>) -> Self::Output {
+		Self::Output {
+			instructions: vec![..self.instructions, ..other.instructions],
+			var_reg_mapping: other.var_reg_mapping,
+		}
+	}
+}
+
+impl<L: Language> CombinableWith<Compiled<L, false>> for Compiled<L, true> {
+	type Output = Compiled<L, true>;
+
+	fn combine(self, other: Compiled<L, false>) -> Self::Output {
+		Self::Output {
+			instructions: vec![..self.instructions, ..other.instructions],
+			var_reg_mapping: self.var_reg_mapping,
 		}
 	}
 }

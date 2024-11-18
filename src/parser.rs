@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
 
 use crate::ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Terms, Variable};
@@ -16,6 +16,17 @@ impl FromStr for Term {
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		Parser::new(s).parse_term()
+	}
+}
+
+impl FromStr for Fact {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+		Parser::new(s)
+			.parse_clause()?
+			.try_unwrap_fact()
+			.context("Parsed clause is not a fact.")
 	}
 }
 

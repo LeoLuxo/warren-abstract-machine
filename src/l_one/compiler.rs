@@ -1,12 +1,12 @@
 use std::collections::{btree_map, HashSet, VecDeque};
 
 use crate::{
-	ast::{Functor, GetFunctor, Term},
+	ast::{Fact, Functor, GetFunctor, Term},
 	machine_types::{VarRegister, VarToRegMapping},
 	CompilableProgram, CompilableQuery, Compiled, Successor,
 };
 
-use super::{FirstOrderTerm, L0Instruction, L0};
+use super::{Facts, L1};
 
 /*
 --------------------------------------------------------------------------------
@@ -14,17 +14,32 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 --------------------------------------------------------------------------------
 */
 
-impl CompilableProgram<L0> for FirstOrderTerm {
-	fn compile_as_program(self) -> Compiled<L0, false> {
-		let (tokens, _) = flatten_program_term(self);
+impl CompilableProgram<L1> for Facts {
+	fn compile_as_program(self) -> Compiled<L1> {
+		let (tokens, var_mapping) = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
-		Compiled::<L0, false>::new(instructions)
+		Compiled {
+			instructions,
+			var_reg_mapping: var_mapping,
+		}
 	}
 }
 
-impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> Compiled<L0, true> {
+impl CompilableProgram<L1> for Fact {
+	fn compile_as_program(self) -> Compiled<L1> {
+		let (tokens, var_mapping) = flatten_program_term(self);
+		let instructions = compile_program_tokens(tokens);
+
+		Compiled {
+			instructions,
+			var_reg_mapping: var_mapping,
+		}
+	}
+}
+
+impl CompilableQuery<L1> for Fact {
+	fn compile_as_query(self) -> Compiled<L1> {
 		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 

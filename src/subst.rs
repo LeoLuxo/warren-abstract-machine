@@ -69,7 +69,7 @@ impl UnboundMapping {
 	}
 }
 
-impl<L: Language> Compiled<L> {
+impl<L: Language> Compiled<L, true> {
 	fn compute_var_heap_address(&self, register: VarRegister) -> Option<HeapAddress>
 	where
 		L::InstructionSet: StaticMapping,
@@ -99,7 +99,7 @@ impl<L: Language> Compiled<L> {
 	where
 		L::InstructionSet: StaticMapping,
 	{
-		self.var_reg_mapping
+		self.get_var_reg_mapping()
 			.iter()
 			.filter_map(|(var, reg)| self.compute_var_heap_address(*reg).map(|addr| (var.clone(), addr)))
 			.collect()
@@ -124,8 +124,7 @@ where
 	// 	Ok(target_mapping)
 	// }
 
-	fn extract_substitution(&self, compiled: &Compiled<L>) -> Result<Substitution> {
-		let var_heap_mapping = compiled.compute_var_heap_mapping();
+	fn extract_substitution(&self, var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
 		let mut substitution = Substitution::default();
 		let mut unbound_map = UnboundMapping::default();
 
