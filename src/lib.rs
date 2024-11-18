@@ -1,10 +1,8 @@
-use std::{
-	fmt::Display,
-};
+use std::fmt::Display;
 
 use anyhow::Result;
 use derive_more::derive::{Display, From};
-use l_zero::compiler::VarToRegMapping;
+use machine_types::VarToRegMapping;
 use subst::Substitution;
 use util::Successor;
 
@@ -16,6 +14,7 @@ use util::Successor;
 
 pub mod ast;
 pub mod l_zero;
+pub mod machine_types;
 pub mod parser;
 pub mod subst;
 pub mod util;
@@ -64,18 +63,18 @@ pub trait CompilableQuery<L: Language> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]
-#[display("{}\n{}", display_iter!(instructions, "\n"), var_mapping)]
+#[display("{}\nwhere {}", display_iter!(instructions, "\n"), var_reg_mapping)]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Compiled<L: Language> {
 	pub instructions: Vec<L::InstructionSet>,
-	pub var_mapping: VarToRegMapping,
+	pub var_reg_mapping: VarToRegMapping,
 }
 
 impl<L: Language> Default for Compiled<L> {
 	fn default() -> Self {
 		Self {
 			instructions: Default::default(),
-			var_mapping: Default::default(),
+			var_reg_mapping: Default::default(),
 		}
 	}
 }

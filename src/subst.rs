@@ -1,11 +1,14 @@
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
-use derive_more::derive::{Display, From};
+use anyhow::Result;
+use derive_more::derive::{Deref, DerefMut, Display, From};
 
 use crate::{
 	ast::{Constant, Structure, Variable},
 	display_map,
+	machine_types::{HeapAddress, VarRegister, VarToHeapMapping},
 	util::Successor,
+	Compiled, Language,
 };
 
 /*
@@ -14,7 +17,12 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
+pub trait StaticMapping {
+	fn static_heap_size(&self) -> Option<HeapAddress>;
+	fn static_variable_entry_point(&self, register: VarRegister) -> bool;
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
 #[display("{{ {} }}", display_map!(_0))]
 pub struct Substitution(BTreeMap<Variable, SubstTerm>);
 
@@ -63,13 +71,47 @@ impl UnboundMapping {
 	}
 }
 
-pub type SubstTargetMapping<Target> = BTreeMap<Variable, Target>;
+// pub type SubstTargetMapping<Target> = BTreeMap<Variable, Target>;
 
-pub trait ExtractSubstitution {
-	// type Target;
+impl<L: Language> Compiled<L> {
+	fn compute_var_heap_address(&self, register: VarRegister) -> Option<HeapAddress>
+	where
+		L::InstructionSet: StaticMapping,
+	{
+		let mut heap_top = HeapAddress::default();
 
+		for instruction in &self.instructions {
+			if let Some(ep) = instruction.static_heap_size() {
+				heap_top += ep;
+			} else {
+				break;
+			}
+
+			if instruction.static_variable_entry_point(register) {
+				return Some(heap_top);
+			}
+		}
+
+		None
+	}
+
+	pub fn compute_var_heap_mapping(&self) -> VarToHeapMapping
+	where
+		L::InstructionSet: StaticMapping,
+	{
+		self.var_reg_mapping
+			.iter()
+			.filter_map(|(var, reg)| self.compute_var_heap_address(*reg).map(|addr| (var.clone(), addr)))
+			.collect()
+	}
+}
+
+pub trait ExtractSubstitution<L: Language>
+where
+	L::InstructionSet: StaticMapping,
+{
 	// fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
-	// fn extract_target(&self, target: Self::Target, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
+	fn extract_heap(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
 
 	// fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<SubstTargetMapping<Self::Target>> {
 	// 	let mut target_mapping = BTreeMap::new();
@@ -82,15 +124,16 @@ pub trait ExtractSubstitution {
 	// 	Ok(target_mapping)
 	// }
 
-	// fn extract_substitution(&self, target_mapping: SubstTargetMapping<Self::Target>) -> Result<Substitution> {
-	// 	let mut substitution = BTreeMap::new();
-	// 	let mut unbound_map = UnboundMapping::default();
+	fn extract_substitution(&self, compiled: &Compiled<L>) -> Result<Substitution> {
+		let var_heap_mapping = compiled.compute_var_heap_mapping();
+		let mut substitution = Substitution::default();
+		let mut unbound_map = UnboundMapping::default();
 
-	// 	for (var, target) in target_mapping.into_iter() {
-	// 		let entry = self.extract_target(target, &mut unbound_map)?;
-	// 		substitution.insert(var, entry);
-	// 	}
+		for (var, address) in var_heap_mapping.into_iter() {
+			let entry = self.extract_heap(address, &mut unbound_map)?;
+			substitution.insert(var, entry);
+		}
 
-	// 	Ok(substitution.into())
-	// }
+		Ok(substitution)
+	}
 }

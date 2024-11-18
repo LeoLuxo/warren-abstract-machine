@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow      = "1.0.86"
+derive-new  = "0.7.0"
 derive_more = { version = "1.0.0", features = ["full"] }
 logos       = "0.14.0"
 velcro      = "0.5.4"

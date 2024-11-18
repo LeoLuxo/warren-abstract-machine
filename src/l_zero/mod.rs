@@ -2,10 +2,12 @@ use std::{fmt, str::FromStr};
 
 use anyhow::{bail, Result};
 use derive_more::derive::Display;
-use machine::{VarRegister, M0};
+use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
+	machine_types::{HeapAddress, VarRegister},
+	subst::{ExtractSubstitution, StaticMapping},
 	CompilableProgram, CompilableQuery, Compiled, Interpreter, Language, Substitution,
 };
 
@@ -53,6 +55,25 @@ impl fmt::Display for L0Instruction {
 	}
 }
 
+impl StaticMapping for L0Instruction {
+	fn static_heap_size(&self) -> Option<HeapAddress> {
+		match self {
+			L0Instruction::PutStructure(_, _) => Some(2),
+			L0Instruction::SetVariable(_) => Some(1),
+			L0Instruction::SetValue(_) => Some(1),
+			_ => None,
+		}
+		.map(Into::into)
+	}
+
+	fn static_variable_entry_point(&self, register: VarRegister) -> bool {
+		match self {
+			L0Instruction::SetVariable(reg) if *reg == register => true,
+			_ => false,
+		}
+	}
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L0Interpreter {
 	compiled_program: Compiled<L0>,
@@ -78,14 +99,12 @@ impl Interpreter<L0> for L0Interpreter {
 		let mut machine = M0::new();
 
 		machine.execute(&compiled_query.instructions)?;
-
-		// let pre_substitution = machine.pre_extract_targets(compiled_query.var_mapping)?;
-
 		machine.execute(&self.compiled_program.instructions)?;
 
-		// let substitution = machine.extract_substitution(pre_substitution)?;
-		let substitution = todo!();
+		let substitution = machine.extract_substitution(&compiled_query)?;
 
+		println!("{}", compiled_query);
+		println!("{}", self.compiled_program);
 		println!("{}", machine);
 		println!("{}", substitution);
 

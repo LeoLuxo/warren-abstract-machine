@@ -1,13 +1,13 @@
-use std::collections::{btree_map, BTreeMap, HashSet, VecDeque};
+use std::collections::{btree_map, HashSet, VecDeque};
 
-use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Functor, GetFunctor, Term, Variable},
-	display_map, CompilableProgram, CompilableQuery, Compiled, Successor,
+	ast::{Functor, GetFunctor, Term},
+	machine_types::{VarRegister, VarToRegMapping},
+	CompilableProgram, CompilableQuery, Compiled, Successor,
 };
 
-use super::{machine::VarRegister, FirstOrderTerm, L0Instruction, L0};
+use super::{FirstOrderTerm, L0Instruction, L0};
 
 /*
 --------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 
 		Compiled {
 			instructions,
-			var_mapping,
+			var_reg_mapping: var_mapping,
 		}
 	}
 }
@@ -34,7 +34,7 @@ impl CompilableQuery<L0> for FirstOrderTerm {
 
 		Compiled {
 			instructions,
-			var_mapping,
+			var_reg_mapping: var_mapping,
 		}
 	}
 }
@@ -50,10 +50,6 @@ enum MappingToken {
 	Functor(VarRegister, Functor),
 	VarRegister(VarRegister),
 }
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(BTreeMap<Variable, VarRegister>);
 
 fn allocate_register_id(
 	term: &Term,
@@ -142,31 +138,31 @@ fn flatten_term(
 }
 
 fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut var_mapping = VarToRegMapping::default();
+	let mut var_reg_mapping = VarToRegMapping::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
-		&mut var_mapping,
+		&mut var_reg_mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::BottomUp,
 	);
 
-	(tokens, var_mapping)
+	(tokens, var_reg_mapping)
 }
 
 fn flatten_program_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut var_mapping = VarToRegMapping::default();
+	let mut var_reg_mapping = VarToRegMapping::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
-		&mut var_mapping,
+		&mut var_reg_mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::TopDown,
 	);
 
-	(tokens, var_mapping)
+	(tokens, var_reg_mapping)
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
@@ -222,6 +218,7 @@ mod tests {
 
 	#[test]
 	fn test_flatten_query_term() -> Result<()> {
+		// TODO: ew
 		#[rustfmt::skip]
 		assert_eq!(
 			flatten_query_term("c".parse()?).0,
