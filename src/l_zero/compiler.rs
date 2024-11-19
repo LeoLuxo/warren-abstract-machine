@@ -3,10 +3,11 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
+use crate::universal_compiler;
 use crate::universal_compiler::CompilableProgram;
 use crate::universal_compiler::CompilableQuery;
 use crate::universal_compiler::Compiled;
-use crate::universal_compiler::{flatten_term, FlatteningOrder};
+use crate::universal_compiler::FlatteningOrder;
 use crate::{
 	machine_types::VarRegister,
 	subst::{VarToRegMapping, VariableContext},
@@ -24,7 +25,10 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 
 impl CompilableProgram<L0> for FirstOrderTerm {
 	fn compile_as_program(self) -> Result<Compiled<L0>> {
-		let (tokens, var_mapping) = flatten_program_term(self);
+		let order = FlatteningOrder::for_program();
+		let context = VariableContext::Local("prg".into());
+		let (tokens, var_mapping) = flatten_term(self, order, context);
+
 		let instructions = compile_program_tokens(tokens);
 
 		Ok(Compiled {
@@ -37,7 +41,10 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 
 impl CompilableQuery<L0> for FirstOrderTerm {
 	fn compile_as_query(self) -> Result<Compiled<L0>> {
-		let (tokens, var_mapping) = flatten_query_term(self);
+		let order = FlatteningOrder::for_query();
+		let context = VariableContext::Query;
+		let (tokens, var_mapping) = flatten_term(self, order, context);
+
 		let instructions = compile_query_tokens(tokens);
 
 		Ok(Compiled {
@@ -48,57 +55,24 @@ impl CompilableQuery<L0> for FirstOrderTerm {
 	}
 }
 
-fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
+fn flatten_term(
+	term: FirstOrderTerm,
+	order: FlatteningOrder,
+	context: VariableContext,
+) -> (Vec<MappingToken>, VarToRegMapping) {
 	let mut mapping = HashMap::default();
 
-	let tokens = flatten_term(
+	let tokens = universal_compiler::flatten_term(
 		VarRegister::default(),
 		term.into(),
 		&mut mapping,
 		&mut VarRegister::default(),
-		FlatteningOrder::for_query(),
+		order,
 	);
 
-	let context = VariableContext::Query;
 	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
 
 	(tokens, var_reg_mapping)
-}
-
-fn flatten_program_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut mapping = HashMap::default();
-
-	let tokens = flatten_term(
-		VarRegister::default(),
-		term.into(),
-		&mut mapping,
-		&mut VarRegister::default(),
-		FlatteningOrder::for_program(),
-	);
-
-	let context = VariableContext::Local("prg".into());
-	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
-
-	(tokens, var_reg_mapping)
-}
-
-fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
-	let mut instructions = Vec::with_capacity(tokens.len());
-	let mut encountered = HashSet::new();
-
-	for token in tokens {
-		#[rustfmt::skip]
-		let (reg, inst) = match token {
-			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::PutStructure(functor, reg)),
-			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::SetValue(reg)),
-			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::SetVariable(reg)),
-		};
-
-		encountered.insert(reg);
-		instructions.push(inst);
-	}
-
-	instructions
 }
 
 fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
@@ -111,6 +85,25 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::GetStructure(functor, reg)),
 			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::UnifyValue(reg)),
 			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::UnifyVariable(reg)),
+		};
+
+		encountered.insert(reg);
+		instructions.push(inst);
+	}
+
+	instructions
+}
+
+fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
+	let mut instructions = Vec::with_capacity(tokens.len());
+	let mut encountered = HashSet::new();
+
+	for token in tokens {
+		#[rustfmt::skip]
+		let (reg, inst) = match token {
+			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::PutStructure(functor, reg)),
+			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::SetValue(reg)),
+			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::SetVariable(reg)),
 		};
 
 		encountered.insert(reg);

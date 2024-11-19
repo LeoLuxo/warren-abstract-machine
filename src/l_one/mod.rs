@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Constant, Fact, Functor, Structure, Term},
+	ast::{Constant, Fact, Functor, Identifier, Structure, Term},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
 	subst::{ExtractSubstitution, StaticMapping},
@@ -45,26 +45,26 @@ impl L1Interpreter {
 }
 
 impl Interpreter<L1> for L1Interpreter {
-	fn from_program(program: Fact) -> Self {
-		Self::new(program.compile_as_program())
+	fn from_program(program: Facts) -> Result<Self> {
+		Ok(Self::new(program.compile_as_program()?))
 	}
 
 	fn submit_query(&mut self, query: Fact) -> Result<Substitution> {
-		let compiled_query = query.compile_as_query();
+		// let compiled_query = query.compile_as_query();
 
-		let mut machine = M1::new();
+		// let mut machine = M1::new();
 
-		machine.execute(&compiled_query.instructions)?;
-		machine.execute(&self.compiled_program.instructions)?;
+		// machine.execute(&compiled_query.instructions)?;
+		// machine.execute(&self.compiled_program.instructions)?;
 
-		let substitution = machine.extract_substitution(&compiled_query)?;
+		// let substitution = machine.extract_substitution(&compiled_query)?;
 
-		println!("{}", compiled_query);
-		println!("{}", self.compiled_program);
-		println!("{}", machine);
-		println!("{}", substitution);
+		// println!("{}", compiled_query);
+		// println!("{}", self.compiled_program);
+		// println!("{}", machine);
+		// println!("{}", substitution);
 
-		Ok(substitution)
+		// Ok(substitution)
 	}
 }
 
@@ -76,25 +76,38 @@ impl Interpreter<L1> for L1Interpreter {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum L1Instruction {
+	Call(Identifier),
+	Proceed,
+
 	PutStructure(Functor, VarRegister),
 	SetVariable(VarRegister),
 	SetValue(VarRegister),
+	PutVariable(VarRegister, VarRegister),
+	PutValue(VarRegister, VarRegister),
 
 	GetStructure(Functor, VarRegister),
 	UnifyVariable(VarRegister),
 	UnifyValue(VarRegister),
+	GetVariable(VarRegister, VarRegister),
+	GetValue(VarRegister, VarRegister),
 }
 
 impl fmt::Display for L1Instruction {
 	#[rustfmt::skip]
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&match self {
-			L1Instruction::PutStructure(functor, var_register) => format!("put_structure {functor}, {var_register}"),
-			L1Instruction::SetVariable(var_register)           => format!("set_variable {var_register}"),
-			L1Instruction::SetValue(var_register)              => format!("set_value {var_register}"),
-			L1Instruction::GetStructure(functor, var_register) => format!("get_structure {functor}, {var_register}"),
-			L1Instruction::UnifyVariable(var_register)         => format!("unify_variable {var_register}"),
-			L1Instruction::UnifyValue(var_register)            => format!("unify_value {var_register}"),
+			L1Instruction::Call(identifier)           => format!("call {identifier}"),
+			L1Instruction::Proceed                    => format!("proceed"),
+			L1Instruction::PutStructure(functor, reg) => format!("put_structure {functor}, {reg}"),
+			L1Instruction::SetVariable(reg)           => format!("set_variable {reg}"),
+			L1Instruction::SetValue(reg)              => format!("set_value {reg}"),
+			L1Instruction::PutVariable(reg1, reg2)    => format!("put_variable {reg1}, {reg2}"),
+			L1Instruction::PutValue(reg1, reg2)       => format!("put_value {reg1}, {reg2}"),
+			L1Instruction::GetStructure(functor, reg) => format!("get_structure {functor}, {reg}"),
+			L1Instruction::UnifyVariable(reg)         => format!("unify_variable {reg}"),
+			L1Instruction::UnifyValue(reg)            => format!("unify_value {reg}"),
+			L1Instruction::GetVariable(reg1, reg2)    => format!("get_variable {reg1}, {reg2}"),
+			L1Instruction::GetValue(reg1, reg2)       => format!("get_value {reg1}, {reg2}"),
 		})
 	}
 }
@@ -110,9 +123,9 @@ impl StaticMapping for L1Instruction {
 		.map(Into::into)
 	}
 
-	fn static_variable_entry_point(&self, register: VarRegister) -> bool {
+	fn static_variable_entry_point(&self, register: &VarRegister) -> bool {
 		match self {
-			L1Instruction::SetVariable(reg) if *reg == register => true,
+			L1Instruction::SetVariable(reg) if reg == register => true,
 			_ => false,
 		}
 	}

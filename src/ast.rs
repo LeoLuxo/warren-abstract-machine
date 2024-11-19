@@ -209,6 +209,12 @@ impl GetFunctor for Constant {
 	}
 }
 
+impl From<Functor> for Identifier {
+	fn from(value: Functor) -> Self {
+		format!("{}/{}", value.name, value.arity).into()
+	}
+}
+
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

@@ -90,12 +90,12 @@ impl fmt::Display for L0Instruction {
 	#[rustfmt::skip]
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&match self {
-			L0Instruction::PutStructure(functor, var_register) => format!("put_structure {functor}, {var_register}"),
-			L0Instruction::SetVariable(var_register)           => format!("set_variable {var_register}"),
-			L0Instruction::SetValue(var_register)              => format!("set_value {var_register}"),
-			L0Instruction::GetStructure(functor, var_register) => format!("get_structure {functor}, {var_register}"),
-			L0Instruction::UnifyVariable(var_register)         => format!("unify_variable {var_register}"),
-			L0Instruction::UnifyValue(var_register)            => format!("unify_value {var_register}"),
+			L0Instruction::PutStructure(functor, reg) => format!("put_structure {functor}, {reg}"),
+			L0Instruction::SetVariable(reg)           => format!("set_variable {reg}"),
+			L0Instruction::SetValue(reg)              => format!("set_value {reg}"),
+			L0Instruction::GetStructure(functor, reg) => format!("get_structure {functor}, {reg}"),
+			L0Instruction::UnifyVariable(reg)         => format!("unify_variable {reg}"),
+			L0Instruction::UnifyValue(reg)            => format!("unify_value {reg}"),
 		})
 	}
 }
