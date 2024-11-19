@@ -26,7 +26,7 @@ impl FromStr for Fact {
 		Parser::new(s)
 			.parse_clause()?
 			.try_unwrap_fact()
-			.context("Parsed clause is not a fact.")
+			.context("Expected fact but parsed rule instead")
 	}
 }
 

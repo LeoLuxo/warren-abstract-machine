@@ -1,15 +1,23 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::ops::Add;
+use std::ops::AddAssign;
+
+use anyhow::Context;
+use anyhow::Result;
 
 use crate::ast::Fact;
-use crate::flatten::{flatten_term, FlatteningOrder};
+use crate::universal_compiler::flatten_term;
+use crate::universal_compiler::CompilableProgram;
+use crate::universal_compiler::CompilableQuery;
+use crate::universal_compiler::Compiled;
+use crate::universal_compiler::FlatteningOrder;
+use crate::universal_compiler::MappingToken;
 use crate::{
 	ast::Term,
 	machine_types::VarRegister,
 	subst::{VarToRegMapping, VariableContext},
 };
-
-use crate::{flatten::MappingToken, CompilableProgram, CompilableQuery, Compiled};
 
 use super::Facts;
 use super::L1;
@@ -21,19 +29,18 @@ use super::L1;
 */
 
 impl CompilableProgram<L1> for Facts {
-	fn compile_as_program(self) -> Compiled<L1> {
-		// let (tokens, var_mapping) = flatten_program_term(self.into());
-		// let instructions = compile_program_tokens(tokens);
-
-		// Compiled {
-		// 	instructions,
-		// 	var_reg_mapping: Some(var_mapping),
-		// }
+	fn compile_as_program(self) -> Result<Compiled<L1>> {
+		self.into_iter()
+			.map(|fact| fact.compile_as_program())
+			.collect::<Result<Vec<_>>>()?
+			.into_iter()
+			.reduce(Add::add)
+			.context("empty set of facts cannot be compiled")
 	}
 }
 
 impl CompilableProgram<L1> for Fact {
-	fn compile_as_program(self) -> Compiled<L1> {
+	fn compile_as_program(self) -> Result<Compiled<L1>> {
 		// let (tokens, var_mapping) = flatten_program_term(self.into());
 		// let instructions = compile_program_tokens(tokens);
 

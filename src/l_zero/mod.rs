@@ -47,12 +47,12 @@ impl L0Interpreter {
 }
 
 impl Interpreter<L0> for L0Interpreter {
-	fn from_program(program: FirstOrderTerm) -> Self {
-		Self::new(program.compile_as_program())
+	fn from_program(program: FirstOrderTerm) -> Result<Self> {
+		Ok(Self::new(program.compile_as_program()?))
 	}
 
 	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
-		let compiled_query = query.compile_as_query();
+		let compiled_query = query.compile_as_query()?;
 
 		let mut machine = M0::new();
 

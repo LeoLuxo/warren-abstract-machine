@@ -25,11 +25,11 @@ use crate::{
 */
 
 pub trait CompilableProgram<L: Language> {
-	fn compile_as_program(self) -> Compiled<L>;
+	fn compile_as_program(self) -> Result<Compiled<L>>;
 }
 
 pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> Compiled<L>;
+	fn compile_as_query(self) -> Result<Compiled<L>>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use anyhow::Result;
+
 use crate::universal_compiler::CompilableProgram;
 use crate::universal_compiler::CompilableQuery;
 use crate::universal_compiler::Compiled;
@@ -21,28 +23,28 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 */
 
 impl CompilableProgram<L0> for FirstOrderTerm {
-	fn compile_as_program(self) -> Compiled<L0> {
+	fn compile_as_program(self) -> Result<Compiled<L0>> {
 		let (tokens, var_mapping) = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
-		Compiled {
+		Ok(Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
 			..Default::default()
-		}
+		})
 	}
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> Compiled<L0> {
+	fn compile_as_query(self) -> Result<Compiled<L0>> {
 		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 
-		Compiled {
+		Ok(Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
 			..Default::default()
-		}
+		})
 	}
 }
 
@@ -138,7 +140,7 @@ mod tests {
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)"
 				.parse::<FirstOrderTerm>()?
-				.compile_as_program().instructions,
+				.compile_as_program()?.instructions,
 			vec![
 				L0Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
 				L0Instruction::UnifyVariable(2_usize.into()),
@@ -164,7 +166,7 @@ mod tests {
 		assert_eq!(
 			"p(Z, h(Z,W), f(W))"
 				.parse::<FirstOrderTerm>()?
-				.compile_as_query().instructions,
+				.compile_as_query()?.instructions,
 			vec![
 				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
 				L0Instruction::SetVariable(2_usize.into()),
