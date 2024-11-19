@@ -52,7 +52,7 @@ impl Interpreter<L1> for L1Interpreter {
 	fn submit_query(&mut self, query: Fact) -> Result<Substitution> {
 		let compiled_query = query.compile_as_query();
 
-		let mut machine = M0::new();
+		let mut machine = M1::new();
 
 		machine.execute(&compiled_query.instructions)?;
 		machine.execute(&self.compiled_program.instructions)?;
@@ -86,14 +86,15 @@ enum L1Instruction {
 }
 
 impl fmt::Display for L1Instruction {
+	#[rustfmt::skip]
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&match self {
 			L1Instruction::PutStructure(functor, var_register) => format!("put_structure {functor}, {var_register}"),
-			L1Instruction::SetVariable(var_register) => format!("set_variable {var_register}"),
-			L1Instruction::SetValue(var_register) => format!("set_value {var_register}"),
+			L1Instruction::SetVariable(var_register)           => format!("set_variable {var_register}"),
+			L1Instruction::SetValue(var_register)              => format!("set_value {var_register}"),
 			L1Instruction::GetStructure(functor, var_register) => format!("get_structure {functor}, {var_register}"),
-			L1Instruction::UnifyVariable(var_register) => format!("unify_variable {var_register}"),
-			L1Instruction::UnifyValue(var_register) => format!("unify_value {var_register}"),
+			L1Instruction::UnifyVariable(var_register)         => format!("unify_variable {var_register}"),
+			L1Instruction::UnifyValue(var_register)            => format!("unify_value {var_register}"),
 		})
 	}
 }

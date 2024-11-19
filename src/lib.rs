@@ -18,6 +18,7 @@ use velcro::vec;
 
 pub mod ast;
 // pub mod l_one;
+pub mod flatten;
 pub mod l_zero;
 pub mod machine_types;
 pub mod parser;

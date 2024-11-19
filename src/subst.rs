@@ -22,15 +22,15 @@ use std::{
 #[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Default)]
 pub enum VariableContext {
 	#[default]
-	Global,
+	Query,
 	Local(Identifier),
 }
 
 impl PartialOrd for VariableContext {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		match (self, other) {
-			(Self::Global, Self::Local(_)) => Some(Ordering::Less),
-			(Self::Local(_), Self::Global) => Some(Ordering::Greater),
+			(Self::Query, Self::Local(_)) => Some(Ordering::Less),
+			(Self::Local(_), Self::Query) => Some(Ordering::Greater),
 			(Self::Local(a), Self::Local(b)) => a.partial_cmp(b),
 			(a, b) if a == b => Some(Ordering::Equal),
 			_ => None,
@@ -40,7 +40,7 @@ impl PartialOrd for VariableContext {
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Display)]
 #[display("{}", match context { 
-	VariableContext::Global =>            format!("{}", variable),
+	VariableContext::Query =>            format!("{}", variable),
 	VariableContext::Local(identifier) => format!("{}<{}>", variable, identifier)
 })]
 pub struct ScopedVariable {
@@ -265,7 +265,7 @@ where
 	// }
 
 	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
-		var_heap_mapping.filter_by_context(VariableContext::Global);
+		var_heap_mapping.filter_by_context(VariableContext::Query);
 
 		let mut substitution = Substitution::default();
 		let mut unbound_map = UnboundMapping::default();
