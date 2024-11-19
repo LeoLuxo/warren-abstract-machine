@@ -5,7 +5,7 @@ use crate::{
 	util::Successor,
 	Compiled, Language,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From};
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
@@ -69,7 +69,7 @@ impl UnboundMapping {
 	}
 }
 
-impl<L: Language> Compiled<L, true> {
+impl<L: Language> Compiled<L> {
 	fn compute_var_heap_address(&self, register: VarRegister) -> Option<HeapAddress>
 	where
 		L::InstructionSet: StaticMapping,
@@ -95,14 +95,17 @@ impl<L: Language> Compiled<L, true> {
 		None
 	}
 
-	pub fn compute_var_heap_mapping(&self) -> VarToHeapMapping
+	pub fn compute_var_heap_mapping(&self) -> Result<VarToHeapMapping>
 	where
 		L::InstructionSet: StaticMapping,
 	{
-		self.get_var_reg_mapping()
+		Ok(self
+			.var_reg_mapping
+			.as_ref()
+			.context("Cannot compute var-heap mapping of compiled without a valid mapping")?
 			.iter()
 			.filter_map(|(var, reg)| self.compute_var_heap_address(*reg).map(|addr| (var.clone(), addr)))
-			.collect()
+			.collect())
 	}
 }
 

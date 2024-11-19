@@ -15,22 +15,25 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 */
 
 impl CompilableProgram<L0> for FirstOrderTerm {
-	fn compile_as_program(self) -> Compiled<L0, false> {
-		let (tokens, _) = flatten_program_term(self);
+	fn compile_as_program(self) -> Compiled<L0> {
+		let (tokens, var_mapping) = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
-		Compiled::<L0, false>::new(instructions)
+		Compiled {
+			instructions,
+			var_reg_mapping: Some(var_mapping),
+		}
 	}
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
-	fn compile_as_query(self) -> Compiled<L0, true> {
+	fn compile_as_query(self) -> Compiled<L0> {
 		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 
 		Compiled {
 			instructions,
-			var_reg_mapping: var_mapping,
+			var_reg_mapping: Some(var_mapping),
 		}
 	}
 }

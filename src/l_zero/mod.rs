@@ -55,17 +55,16 @@ impl Interpreter<L0> for L0Interpreter {
 
 		let mut machine = M0::new();
 
-		machine.execute(&compiled_query.instructions)?;
-		machine.execute(&self.compiled_program.instructions)?;
+		let problem = compiled_query + self.compiled_program.clone().with_stripped_mapping();
 
-		let substitution = machine.extract_substitution(&compiled_query)?;
+		machine.execute(&problem.instructions)?;
 
-		println!("{}", compiled_query);
-		println!("{}", self.compiled_program);
-		println!("{}", machine);
-		println!("{}", substitution);
+		let solution = machine.extract_substitution(problem.compute_var_heap_mapping()?)?;
 
-		Ok(substitution)
+		println!("{}", problem);
+		println!("{}", solution);
+
+		Ok(solution)
 	}
 }
 
@@ -76,7 +75,7 @@ impl Interpreter<L0> for L0Interpreter {
 */
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum L0Instruction {
+pub enum L0Instruction {
 	PutStructure(Functor, VarRegister),
 	SetVariable(VarRegister),
 	SetValue(VarRegister),
