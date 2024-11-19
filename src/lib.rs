@@ -1,11 +1,14 @@
 use std::{
+	collections::HashMap,
 	fmt::Display,
 	mem,
 	ops::{Add, AddAssign},
 };
 
 use anyhow::{Context, Result};
+use ast::Identifier;
 use derive_more::derive::{Display, From};
+use machine_types::CodeAddress;
 use subst::{StaticMapping, Substitution, VarToHeapMapping, VarToRegMapping};
 use util::Successor;
 use velcro::vec;
@@ -17,8 +20,8 @@ use velcro::vec;
 */
 
 pub mod ast;
-// pub mod l_one;
 pub mod flatten;
+// pub mod l_one;
 pub mod l_zero;
 pub mod machine_types;
 pub mod parser;
@@ -74,6 +77,7 @@ pub trait CompilableQuery<L: Language> {
 pub struct Compiled<L: Language> {
 	pub instructions: Vec<L::InstructionSet>,
 	pub var_reg_mapping: Option<VarToRegMapping>,
+	pub labels: HashMap<Identifier, CodeAddress>,
 }
 
 impl<L: Language> Default for Compiled<L> {
@@ -81,25 +85,18 @@ impl<L: Language> Default for Compiled<L> {
 		Self {
 			instructions: Default::default(),
 			var_reg_mapping: Default::default(),
+			labels: Default::default(),
 		}
 	}
 }
 
 impl<L: Language> Compiled<L> {
-	pub fn strip_mapping(&mut self) {
-		self.var_reg_mapping = None;
-	}
-
-	pub fn with_stripped_mapping(self) -> Self {
-		Self {
-			instructions: self.instructions,
-			var_reg_mapping: None,
-		}
-	}
-
 	pub fn combined(self, other: Self) -> Self {
+		let label_offset = self.instructions.len().into();
+
 		// self's instructions then other's instructions, in order
 		let instructions = vec![..self.instructions, ..other.instructions];
+
 		// self's mapping takes priority over other's mapping (overwritten where needed)
 		let var_reg_mapping = match (self.var_reg_mapping, other.var_reg_mapping) {
 			(Some(m1), Some(m2)) => Some(m2.into_iter().chain(m1).collect()),
@@ -107,9 +104,21 @@ impl<L: Language> Compiled<L> {
 			_ => None,
 		};
 
+		let labels = self
+			.labels
+			.into_iter()
+			.chain(
+				other
+					.labels
+					.into_iter()
+					.map(|(ident, addr)| (ident, addr + label_offset)),
+			)
+			.collect();
+
 		Self {
 			instructions,
 			var_reg_mapping,
+			labels,
 		}
 	}
 

@@ -3,7 +3,6 @@ use std::collections::HashSet;
 
 use crate::flatten::{flatten_term, FlatteningOrder};
 use crate::{
-	ast::Term,
 	machine_types::VarRegister,
 	subst::{VarToRegMapping, VariableContext},
 };
@@ -20,34 +19,36 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 
 impl CompilableProgram<L0> for FirstOrderTerm {
 	fn compile_as_program(self) -> Compiled<L0> {
-		let (tokens, var_mapping) = flatten_program_term(self.into());
+		let (tokens, var_mapping) = flatten_program_term(self);
 		let instructions = compile_program_tokens(tokens);
 
 		Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
+			..Default::default()
 		}
 	}
 }
 
 impl CompilableQuery<L0> for FirstOrderTerm {
 	fn compile_as_query(self) -> Compiled<L0> {
-		let (tokens, var_mapping) = flatten_query_term(self.into());
+		let (tokens, var_mapping) = flatten_query_term(self);
 		let instructions = compile_query_tokens(tokens);
 
 		Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
+			..Default::default()
 		}
 	}
 }
 
-pub fn flatten_query_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
+fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
 	let mut mapping = HashMap::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
-		term,
+		term.into(),
 		&mut mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::for_query(),
@@ -59,12 +60,12 @@ pub fn flatten_query_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
 	(tokens, var_reg_mapping)
 }
 
-pub fn flatten_program_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
+fn flatten_program_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
 	let mut mapping = HashMap::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
-		term,
+		term.into(),
 		&mut mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::for_program(),

@@ -4,13 +4,9 @@ use std::{
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
-use derive_more::derive::{
-	Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign,
-};
+use derive_more::derive::{Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign};
 
-use crate::{
-	display_iter, display_map, Successor,
-};
+use crate::{display_iter, display_map, Successor};
 
 /*
 --------------------------------------------------------------------------------
@@ -117,3 +113,14 @@ impl<C> Default for Heap<C> {
 		Self(Default::default())
 	}
 }
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(
+	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign,
+)]
+pub struct CodeAddress(usize);
