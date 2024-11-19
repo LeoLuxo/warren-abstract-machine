@@ -1,8 +1,9 @@
-use std::collections::{btree_map, HashSet, VecDeque};
+use std::collections::{hash_map, HashMap, HashSet, VecDeque};
 
 use crate::{
-	ast::{Functor, GetFunctor, Term},
-	machine_types::{VarRegister, VarToRegMapping},
+	ast::{Functor, GetFunctor, Term, Variable},
+	machine_types::VarRegister,
+	subst::{VarToRegMapping, VariableContext},
 	CompilableProgram, CompilableQuery, Compiled, Successor,
 };
 
@@ -52,7 +53,7 @@ enum MappingToken {
 
 fn allocate_register_id(
 	term: &Term,
-	variable_mapping: &mut VarToRegMapping,
+	variable_mapping: &mut HashMap<Variable, VarRegister>,
 	reserved_ids: &mut VarRegister,
 ) -> VarRegister {
 	match term {
@@ -60,8 +61,8 @@ fn allocate_register_id(
 		Term::Structure(_) => reserved_ids.pre_incr(),
 
 		Term::Variable(variable) => match variable_mapping.entry(variable.clone()) {
-			btree_map::Entry::Occupied(e) => *e.get(),
-			btree_map::Entry::Vacant(e) => *e.insert(reserved_ids.pre_incr()),
+			hash_map::Entry::Occupied(e) => *e.get(),
+			hash_map::Entry::Vacant(e) => *e.insert(reserved_ids.pre_incr()),
 		},
 	}
 }
@@ -69,7 +70,7 @@ fn allocate_register_id(
 fn flatten_term(
 	outer_id: VarRegister,
 	outer_term: Term,
-	variable_mapping: &mut VarToRegMapping,
+	variable_mapping: &mut HashMap<Variable, VarRegister>,
 	reserved_ids: &mut VarRegister,
 	order: FlatteningOrder,
 ) -> Vec<MappingToken> {
@@ -137,29 +138,35 @@ fn flatten_term(
 }
 
 fn flatten_query_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut var_reg_mapping = VarToRegMapping::default();
+	let mut mapping = HashMap::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
-		&mut var_reg_mapping,
+		&mut mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::BottomUp,
 	);
+
+	let context = VariableContext::Global;
+	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
 
 	(tokens, var_reg_mapping)
 }
 
 fn flatten_program_term(term: FirstOrderTerm) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut var_reg_mapping = VarToRegMapping::default();
+	let mut mapping = HashMap::default();
 
 	let tokens = flatten_term(
 		VarRegister::default(),
 		term.into(),
-		&mut var_reg_mapping,
+		&mut mapping,
 		&mut VarRegister::default(),
 		FlatteningOrder::TopDown,
 	);
+
+	let context = VariableContext::Local("prg".into());
+	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
 
 	(tokens, var_reg_mapping)
 }

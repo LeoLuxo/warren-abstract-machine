@@ -5,36 +5,12 @@ use std::{
 };
 
 use derive_more::derive::{
-	Add, AddAssign, Deref, DerefMut, Display, From, Index, IndexMut, Into, IntoIterator, Sub, SubAssign,
+	Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign,
 };
 
-use crate::{ast::Variable, display_iter, display_map, Successor};
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(BTreeMap<Variable, VarRegister>);
-
-impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
-	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter).into()
-	}
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("{}", display_map!(_0))]
-pub struct VarToHeapMapping(BTreeMap<Variable, HeapAddress>);
-
-impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
-	fn from_iter<T: IntoIterator<Item = (Variable, HeapAddress)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter).into()
-	}
-}
+use crate::{
+	display_iter, display_map, Successor,
+};
 
 /*
 --------------------------------------------------------------------------------

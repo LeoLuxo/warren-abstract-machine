@@ -6,8 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use derive_more::derive::{Display, From};
-use machine_types::{VarToHeapMapping, VarToRegMapping};
-use subst::{StaticMapping, Substitution};
+use subst::{StaticMapping, Substitution, VarToHeapMapping, VarToRegMapping};
 use util::Successor;
 use velcro::vec;
 

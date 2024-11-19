@@ -55,7 +55,7 @@ impl Interpreter<L0> for L0Interpreter {
 
 		let mut machine = M0::new();
 
-		let problem = compiled_query + self.compiled_program.clone().with_stripped_mapping();
+		let problem = compiled_query + self.compiled_program.clone();
 
 		machine.execute(&problem.instructions)?;
 

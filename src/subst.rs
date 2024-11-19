@@ -1,14 +1,133 @@
 use crate::{
-	ast::{Constant, Structure, Variable},
+	ast::{Constant, Identifier, Structure, Variable},
 	display_map,
-	machine_types::{HeapAddress, VarRegister, VarToHeapMapping, VarToRegMapping},
-	util::Successor, Language,
+	machine_types::{HeapAddress, VarRegister},
+	util::Successor,
+	Language,
 };
-use anyhow::{Result};
-use derive_more::derive::{Deref, DerefMut, Display, From};
+use anyhow::Result;
+use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap},
+	mem,
 };
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub enum VariableContext {
+	#[default]
+	Global,
+	Local(Identifier),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display("{}", match context { 
+	VariableContext::Global =>            format!("{}", variable),
+	VariableContext::Local(identifier) => format!("{}<{}>", variable, identifier)
+})]
+pub struct ScopedVariable {
+	variable: Variable,
+	context: VariableContext,
+}
+
+impl ScopedVariable {
+	pub fn set_context(&mut self, context: VariableContext) {
+		self.context = context;
+	}
+
+	pub fn drop_context(self) -> Variable {
+		self.variable
+	}
+
+	pub fn matches_context(&self, context: &VariableContext) -> bool {
+		self.context == *context
+	}
+}
+
+impl From<Variable> for ScopedVariable {
+	fn from(value: Variable) -> Self {
+		Self {
+			variable: value,
+			context: Default::default(),
+		}
+	}
+}
+
+impl From<ScopedVariable> for Variable {
+	fn from(value: ScopedVariable) -> Self {
+		value.drop_context()
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct VarToRegMapping(BTreeMap<ScopedVariable, VarRegister>);
+
+impl VarToRegMapping {
+	pub fn filter_by_context(&mut self, context: VariableContext) {
+		self.0 = mem::take(&mut self.0)
+			.into_iter()
+			.filter(|(var, _)| var.matches_context(&context))
+			.collect()
+	}
+
+	pub fn from_hashmap_with_context(hashmap: HashMap<Variable, VarRegister>, context: VariableContext) -> Self {
+		hashmap
+			.into_iter()
+			.map(|(variable, reg)| {
+				(
+					ScopedVariable {
+						variable,
+						context: context.clone(),
+					},
+					reg,
+				)
+			})
+			.collect()
+	}
+}
+
+impl FromIterator<(ScopedVariable, VarRegister)> for VarToRegMapping {
+	fn from_iter<T: IntoIterator<Item = (ScopedVariable, VarRegister)>>(iter: T) -> Self {
+		BTreeMap::from_iter(iter).into()
+	}
+}
+
+impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
+	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
+		BTreeMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct VarToHeapMapping(BTreeMap<ScopedVariable, HeapAddress>);
+
+impl VarToHeapMapping {
+	pub fn filter_by_context(&mut self, context: VariableContext) {
+		self.0 = mem::take(&mut self.0)
+			.into_iter()
+			.filter(|(var, _)| var.matches_context(&context))
+			.collect()
+	}
+}
+
+impl FromIterator<(ScopedVariable, HeapAddress)> for VarToHeapMapping {
+	fn from_iter<T: IntoIterator<Item = (ScopedVariable, HeapAddress)>>(iter: T) -> Self {
+		BTreeMap::from_iter(iter).into()
+	}
+}
+
+impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
+	fn from_iter<T: IntoIterator<Item = (Variable, HeapAddress)>>(iter: T) -> Self {
+		BTreeMap::from_iter(iter.into_iter().map(|(var, addr)| (var.into(), addr))).into()
+	}
+}
 
 /*
 --------------------------------------------------------------------------------
@@ -23,11 +142,7 @@ pub trait StaticMapping {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
 #[display("{{ {} }}", display_map!(_0))]
-pub struct Substitution(BTreeMap<Variable, SubstTerm>);
-
-// #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display)]
-// #[display("{}", _0.as_ref().map_or("(unbound)".to_string(), |t| format!("{}", t)))]
-// pub struct SubstitutionEntry(Option<Term>);
+pub struct Substitution(BTreeMap<ScopedVariable, SubstTerm>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Display, From)]
 #[from(forward)]
@@ -126,7 +241,9 @@ where
 	// 	Ok(target_mapping)
 	// }
 
-	fn extract_substitution(&self, var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
+	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
+		var_heap_mapping.filter_by_context(VariableContext::Global);
+
 		let mut substitution = Substitution::default();
 		let mut unbound_map = UnboundMapping::default();
 
