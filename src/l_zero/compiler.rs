@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::flatten::{flatten_term, FlatteningOrder};
+use crate::universal_compiler::CompilableProgram;
+use crate::universal_compiler::CompilableQuery;
+use crate::universal_compiler::Compiled;
+use crate::universal_compiler::{flatten_term, FlatteningOrder};
 use crate::{
 	machine_types::VarRegister,
 	subst::{VarToRegMapping, VariableContext},
 };
 
-use crate::{flatten::MappingToken, CompilableProgram, CompilableQuery, Compiled};
+use crate::universal_compiler::MappingToken;
 
 use super::{FirstOrderTerm, L0Instruction, L0};
 

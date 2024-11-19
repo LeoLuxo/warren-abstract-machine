@@ -1,17 +1,7 @@
-use std::{
-	collections::HashMap,
-	fmt::Display,
-	mem,
-	ops::{Add, AddAssign},
-};
-
-use anyhow::{Context, Result};
-use ast::Identifier;
-use derive_more::derive::{Display, From};
-use machine_types::CodeAddress;
-use subst::{StaticMapping, Substitution, VarToHeapMapping, VarToRegMapping};
+use anyhow::Result;
+use subst::Substitution;
+use universal_compiler::{CompilableProgram, CompilableQuery};
 use util::Successor;
-use velcro::vec;
 
 /*
 --------------------------------------------------------------------------------
@@ -20,7 +10,7 @@ use velcro::vec;
 */
 
 pub mod ast;
-pub mod flatten;
+pub mod universal_compiler;
 // pub mod l_one;
 pub mod l_zero;
 pub mod machine_types;
@@ -60,95 +50,5 @@ pub trait Interpreter<L: Language>: Sized {
 	fn solve(program: L::Program, queries: Vec<L::Query>) -> Vec<Result<Substitution>> {
 		let mut interpreter = Self::from_program(program);
 		queries.into_iter().map(|q| interpreter.submit_query(q)).collect()
-	}
-}
-
-pub trait CompilableProgram<L: Language> {
-	fn compile_as_program(self) -> Compiled<L>;
-}
-
-pub trait CompilableQuery<L: Language> {
-	fn compile_as_query(self) -> Compiled<L>;
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, From, Display)]
-#[display("{}\n{}", display_iter!(instructions, "\n"), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
-#[display(bounds(L::InstructionSet: Display))]
-pub struct Compiled<L: Language> {
-	pub instructions: Vec<L::InstructionSet>,
-	pub var_reg_mapping: Option<VarToRegMapping>,
-	pub labels: HashMap<Identifier, CodeAddress>,
-}
-
-impl<L: Language> Default for Compiled<L> {
-	fn default() -> Self {
-		Self {
-			instructions: Default::default(),
-			var_reg_mapping: Default::default(),
-			labels: Default::default(),
-		}
-	}
-}
-
-impl<L: Language> Compiled<L> {
-	pub fn combined(self, other: Self) -> Self {
-		let label_offset = self.instructions.len().into();
-
-		// self's instructions then other's instructions, in order
-		let instructions = vec![..self.instructions, ..other.instructions];
-
-		// self's mapping takes priority over other's mapping (overwritten where needed)
-		let var_reg_mapping = match (self.var_reg_mapping, other.var_reg_mapping) {
-			(Some(m1), Some(m2)) => Some(m2.into_iter().chain(m1).collect()),
-			(_, Some(m)) | (Some(m), _) => Some(m),
-			_ => None,
-		};
-
-		let labels = self
-			.labels
-			.into_iter()
-			.chain(
-				other
-					.labels
-					.into_iter()
-					.map(|(ident, addr)| (ident, addr + label_offset)),
-			)
-			.collect();
-
-		Self {
-			instructions,
-			var_reg_mapping,
-			labels,
-		}
-	}
-
-	pub fn combine(&mut self, other: Self) {
-		*self = mem::take(self).combined(other)
-	}
-
-	pub fn compute_var_heap_mapping(&self) -> Result<VarToHeapMapping>
-	where
-		<L as Language>::InstructionSet: StaticMapping,
-	{
-		subst::compute_var_heap_mapping(
-			self.var_reg_mapping
-				.as_ref()
-				.context("Cannot compute var-heap mapping of compiled without a valid mapping")?,
-			&self.instructions,
-		)
-	}
-}
-
-impl<L: Language> Add for Compiled<L> {
-	type Output = Self;
-
-	fn add(self, rhs: Self) -> Self::Output {
-		self.combined(rhs)
-	}
-}
-
-impl<L: Language> AddAssign for Compiled<L> {
-	fn add_assign(&mut self, rhs: Self) {
-		self.combine(rhs);
 	}
 }
