@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use std::{
+	cmp::Ordering,
 	collections::{hash_map::Entry, BTreeMap, HashMap},
 	mem,
 };
@@ -18,14 +19,26 @@ use std::{
 --------------------------------------------------------------------------------
 */
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Default)]
 pub enum VariableContext {
 	#[default]
 	Global,
 	Local(Identifier),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+impl PartialOrd for VariableContext {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		match (self, other) {
+			(Self::Global, Self::Local(_)) => Some(Ordering::Less),
+			(Self::Local(_), Self::Global) => Some(Ordering::Greater),
+			(Self::Local(a), Self::Local(b)) => a.partial_cmp(b),
+			(a, b) if a == b => Some(Ordering::Equal),
+			_ => None,
+		}
+	}
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Display)]
 #[display("{}", match context { 
 	VariableContext::Global =>            format!("{}", variable),
 	VariableContext::Local(identifier) => format!("{}<{}>", variable, identifier)
@@ -46,6 +59,16 @@ impl ScopedVariable {
 
 	pub fn matches_context(&self, context: &VariableContext) -> bool {
 		self.context == *context
+	}
+}
+
+impl PartialOrd for ScopedVariable {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(
+			self.context
+				.partial_cmp(&other.context)?
+				.then(self.variable.partial_cmp(&other.variable)?),
+		)
 	}
 }
 
