@@ -1,14 +1,13 @@
 use std::{
 	fmt::Display,
-	marker::PhantomData,
 	mem,
 	ops::{Add, AddAssign},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use derive_more::derive::{Display, From};
-use machine_types::VarToRegMapping;
-use subst::Substitution;
+use machine_types::{VarToHeapMapping, VarToRegMapping};
+use subst::{StaticMapping, Substitution};
 use util::Successor;
 use velcro::vec;
 
@@ -103,7 +102,7 @@ impl<L: Language> Compiled<L> {
 		let instructions = vec![..self.instructions, ..other.instructions];
 		// self's mapping takes priority over other's mapping (overwritten where needed)
 		let var_reg_mapping = match (self.var_reg_mapping, other.var_reg_mapping) {
-			(Some(m1), Some(m2)) => Some(m2.into_iter().chain(m1.into_iter()).collect()),
+			(Some(m1), Some(m2)) => Some(m2.into_iter().chain(m1).collect()),
 			(_, Some(m)) | (Some(m), _) => Some(m),
 			_ => None,
 		};
@@ -116,6 +115,18 @@ impl<L: Language> Compiled<L> {
 
 	pub fn combine(&mut self, other: Self) {
 		*self = mem::take(self).combined(other)
+	}
+
+	pub fn compute_var_heap_mapping(&self) -> Result<VarToHeapMapping>
+	where
+		<L as Language>::InstructionSet: StaticMapping,
+	{
+		subst::compute_var_heap_mapping(
+			self.var_reg_mapping
+				.as_ref()
+				.context("Cannot compute var-heap mapping of compiled without a valid mapping")?,
+			&self.instructions,
+		)
 	}
 }
 

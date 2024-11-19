@@ -109,9 +109,9 @@ impl StaticMapping for L0Instruction {
 		.map(Into::into)
 	}
 
-	fn static_variable_entry_point(&self, register: VarRegister) -> bool {
+	fn static_variable_entry_point(&self, register: &VarRegister) -> bool {
 		match self {
-			L0Instruction::SetVariable(reg) if *reg == register => true,
+			L0Instruction::SetVariable(reg) if reg == register => true,
 			_ => false,
 		}
 	}

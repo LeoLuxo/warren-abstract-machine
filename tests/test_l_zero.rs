@@ -62,17 +62,17 @@ mod l_zero {
 	#[test]
 	fn test_unbound() -> Result<()> {
 		assert_eq!(
-			format!("{}", solve_single::<L0>("p(X, Y, X)".parse()?, "p(X, Y, Z)".parse()?)?),
+			format!("{}", solve_single::<L0>("p(A, B, A)".parse()?, "p(X, Y, Z)".parse()?)?),
 			"{ X -> ?1, Y -> ?2, Z -> ?1 }"
 		);
 
 		assert_eq!(
-			format!("{}", solve_single::<L0>("p(X, Y, Y)".parse()?, "p(X, Y, Z)".parse()?)?),
+			format!("{}", solve_single::<L0>("p(A, B, B)".parse()?, "p(X, Y, Z)".parse()?)?),
 			"{ X -> ?1, Y -> ?2, Z -> ?2 }"
 		);
 
 		assert_eq!(
-			format!("{}", solve_single::<L0>("p(X, X, Y)".parse()?, "p(X, Y, Z)".parse()?)?),
+			format!("{}", solve_single::<L0>("p(A, A, B)".parse()?, "p(X, Y, Z)".parse()?)?),
 			"{ X -> ?1, Y -> ?1, Z -> ?2 }"
 		);
 

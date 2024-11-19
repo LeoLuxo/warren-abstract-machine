@@ -1,13 +1,14 @@
 use crate::{
 	ast::{Constant, Structure, Variable},
 	display_map,
-	machine_types::{HeapAddress, VarRegister, VarToHeapMapping},
-	util::Successor,
-	Compiled, Language,
+	machine_types::{HeapAddress, VarRegister, VarToHeapMapping, VarToRegMapping},
+	util::Successor, Language,
 };
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use derive_more::derive::{Deref, DerefMut, Display, From};
-use std::collections::{hash_map::Entry, BTreeMap, HashMap};
+use std::{
+	collections::{hash_map::Entry, BTreeMap, HashMap},
+};
 
 /*
 --------------------------------------------------------------------------------
@@ -17,7 +18,7 @@ use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 pub trait StaticMapping {
 	fn static_heap_size(&self) -> Option<HeapAddress>;
-	fn static_variable_entry_point(&self, register: VarRegister) -> bool;
+	fn static_variable_entry_point(&self, register: &VarRegister) -> bool;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
@@ -69,44 +70,42 @@ impl UnboundMapping {
 	}
 }
 
-impl<L: Language> Compiled<L> {
-	fn compute_var_heap_address(&self, register: VarRegister) -> Option<HeapAddress>
-	where
-		L::InstructionSet: StaticMapping,
-	{
-		let mut heap_top = HeapAddress::default();
+fn compute_var_heap_address<V, I>(register: &VarRegister, instructions: &V) -> Option<HeapAddress>
+where
+	for<'a> &'a V: IntoIterator<Item = &'a I>,
+	I: StaticMapping,
+{
+	let mut heap_top = HeapAddress::default();
 
-		for instruction in &self.instructions {
-			if let Some(ep) = instruction.static_heap_size() {
-				heap_top += ep;
+	for instruction in instructions {
+		if let Some(ep) = instruction.static_heap_size() {
+			heap_top += ep;
+		} else {
+			break;
+		}
+
+		if instruction.static_variable_entry_point(register) {
+			if *heap_top > 0 {
+				return Some(heap_top - 1);
 			} else {
 				break;
 			}
-
-			if instruction.static_variable_entry_point(register) {
-				if *heap_top > 0 {
-					return Some(heap_top - 1);
-				} else {
-					break;
-				}
-			}
 		}
-
-		None
 	}
 
-	pub fn compute_var_heap_mapping(&self) -> Result<VarToHeapMapping>
-	where
-		L::InstructionSet: StaticMapping,
-	{
-		Ok(self
-			.var_reg_mapping
-			.as_ref()
-			.context("Cannot compute var-heap mapping of compiled without a valid mapping")?
-			.iter()
-			.filter_map(|(var, reg)| self.compute_var_heap_address(*reg).map(|addr| (var.clone(), addr)))
-			.collect())
-	}
+	None
+}
+
+pub fn compute_var_heap_mapping<V, I>(var_reg_mapping: &VarToRegMapping, instructions: &V) -> Result<VarToHeapMapping>
+where
+	for<'a> &'a V: IntoIterator<Item = &'a I>,
+	I: StaticMapping,
+{
+	// let asd = instructions.into_iter();
+	Ok(var_reg_mapping
+		.iter()
+		.filter_map(|(var, reg)| compute_var_heap_address(reg, instructions).map(|addr| (var.clone(), addr)))
+		.collect())
 }
 
 pub trait ExtractSubstitution<L: Language>
