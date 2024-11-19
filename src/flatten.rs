@@ -3,7 +3,6 @@ use std::collections::{hash_map, HashMap, VecDeque};
 use crate::{
 	ast::{Functor, GetFunctor, Term, Variable},
 	machine_types::VarRegister,
-	subst::{VarToRegMapping, VariableContext},
 	util::Successor,
 };
 
@@ -19,44 +18,20 @@ pub enum FlatteningOrder {
 	BottomUp,
 }
 
+impl FlatteningOrder {
+	pub fn for_program() -> Self {
+		FlatteningOrder::TopDown
+	}
+
+	pub fn for_query() -> Self {
+		FlatteningOrder::BottomUp
+	}
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MappingToken {
 	Functor(VarRegister, Functor),
 	VarRegister(VarRegister),
-}
-
-pub fn flatten_query_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut mapping = HashMap::default();
-
-	let tokens = flatten_term(
-		VarRegister::default(),
-		term,
-		&mut mapping,
-		&mut VarRegister::default(),
-		FlatteningOrder::BottomUp,
-	);
-
-	let context = VariableContext::Query;
-	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
-
-	(tokens, var_reg_mapping)
-}
-
-pub fn flatten_program_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
-	let mut mapping = HashMap::default();
-
-	let tokens = flatten_term(
-		VarRegister::default(),
-		term,
-		&mut mapping,
-		&mut VarRegister::default(),
-		FlatteningOrder::TopDown,
-	);
-
-	let context = VariableContext::Local("prg".into());
-	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
-
-	(tokens, var_reg_mapping)
 }
 
 fn allocate_register_id(
@@ -75,7 +50,7 @@ fn allocate_register_id(
 	}
 }
 
-fn flatten_term(
+pub fn flatten_term(
 	outer_id: VarRegister,
 	outer_term: Term,
 	variable_mapping: &mut HashMap<Variable, VarRegister>,
@@ -158,10 +133,10 @@ mod tests {
 	use velcro::vec;
 
 	#[test]
-	fn test_flatten_query_term() -> Result<()> {
+	fn test_flatten_term_bottomup() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term("c".parse()?).0,
+			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "c".into(), arity: 0 })
 			]
@@ -169,7 +144,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term("p(X,Y,Z,Y,X)".parse()?).0,
+			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "p".into(), arity: 5 }),
 				MappingToken::VarRegister(2_usize.into()),
@@ -182,7 +157,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term("p(f(X), h(Y, f(a)), Y)".parse()?).0,
+			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
 				MappingToken::Functor(2_usize.into(), Functor { name: "f".into(), arity: 1 }),
 				MappingToken::VarRegister(7_usize.into()),
@@ -201,7 +176,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_query_term("p(Z, h(Z,W), f(W))".parse()?).0,
+			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
 				MappingToken::Functor(3_usize.into(), Functor { name: "h".into(), arity: 2 }),
 				MappingToken::VarRegister(2_usize.into()),
@@ -219,10 +194,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_flatten_program_term() -> Result<()> {
+	fn test_flatten_term_topdown() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("c".parse()?).0,
+			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "c".into(), arity: 0 })
 			]
@@ -230,7 +205,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(X,Y,Z,Y,X)".parse()?).0,
+			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "p".into(), arity: 5 }),
 				MappingToken::VarRegister(2_usize.into()),
@@ -243,7 +218,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(f(X), h(Y, f(a)), Y)".parse()?).0,
+			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(2_usize.into()),
@@ -262,7 +237,7 @@ mod tests {
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_program_term("p(Z, h(Z,W), f(W))".parse()?).0,
+			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
 				MappingToken::Functor(1_usize.into(), Functor { name: "p".into(), arity: 3 }),
 				MappingToken::VarRegister(2_usize.into()),

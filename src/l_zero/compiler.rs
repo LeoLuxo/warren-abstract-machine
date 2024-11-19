@@ -1,9 +1,14 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::flatten::{flatten_term, FlatteningOrder};
 use crate::{
-	flatten::{flatten_program_term, flatten_query_term, MappingToken},
-	CompilableProgram, CompilableQuery, Compiled,
+	ast::Term,
+	machine_types::VarRegister,
+	subst::{VarToRegMapping, VariableContext},
 };
+
+use crate::{flatten::MappingToken, CompilableProgram, CompilableQuery, Compiled};
 
 use super::{FirstOrderTerm, L0Instruction, L0};
 
@@ -35,6 +40,40 @@ impl CompilableQuery<L0> for FirstOrderTerm {
 			var_reg_mapping: Some(var_mapping),
 		}
 	}
+}
+
+pub fn flatten_query_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
+	let mut mapping = HashMap::default();
+
+	let tokens = flatten_term(
+		VarRegister::default(),
+		term,
+		&mut mapping,
+		&mut VarRegister::default(),
+		FlatteningOrder::for_query(),
+	);
+
+	let context = VariableContext::Query;
+	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
+
+	(tokens, var_reg_mapping)
+}
+
+pub fn flatten_program_term(term: Term) -> (Vec<MappingToken>, VarToRegMapping) {
+	let mut mapping = HashMap::default();
+
+	let tokens = flatten_term(
+		VarRegister::default(),
+		term,
+		&mut mapping,
+		&mut VarRegister::default(),
+		FlatteningOrder::for_program(),
+	);
+
+	let context = VariableContext::Local("prg".into());
+	let var_reg_mapping = VarToRegMapping::from_hashmap_with_context(mapping, context);
+
+	(tokens, var_reg_mapping)
 }
 
 fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
