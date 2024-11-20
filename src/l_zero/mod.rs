@@ -25,8 +25,8 @@ mod machine;
 pub struct L0;
 
 impl Language for L0 {
-	type Program = FirstOrderTerm;
-	type Query = FirstOrderTerm;
+	type Program = NonVariableTerm;
+	type Query = NonVariableTerm;
 
 	type InstructionSet = L0Instruction;
 	type Interpreter = L0Interpreter;
@@ -47,11 +47,11 @@ impl L0Interpreter {
 }
 
 impl Interpreter<L0> for L0Interpreter {
-	fn from_program(program: FirstOrderTerm) -> Result<Self> {
+	fn from_program(program: NonVariableTerm) -> Result<Self> {
 		Ok(Self::new(program.compile_as_program()?))
 	}
 
-	fn submit_query(&mut self, query: FirstOrderTerm) -> Result<Substitution> {
+	fn submit_query(&mut self, query: NonVariableTerm) -> Result<Substitution> {
 		let compiled_query = query.compile_as_query()?;
 
 		let mut machine = M0::new();
@@ -128,33 +128,33 @@ impl StaticMapping for L0Instruction {
 */
 
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
-pub enum FirstOrderTerm {
+pub enum NonVariableTerm {
 	Constant(Constant),
 	Structure(Structure),
 }
 
-impl TryInto<FirstOrderTerm> for Term {
+impl TryInto<NonVariableTerm> for Term {
 	type Error = anyhow::Error;
 
-	fn try_into(self) -> Result<FirstOrderTerm, Self::Error> {
+	fn try_into(self) -> Result<NonVariableTerm, Self::Error> {
 		Ok(match self {
-			Term::Constant(constant) => FirstOrderTerm::Constant(constant),
-			Term::Structure(structure) => FirstOrderTerm::Structure(structure),
-			_ => bail!("Cannot convert term to first order term"),
+			Term::Constant(constant) => NonVariableTerm::Constant(constant),
+			Term::Structure(structure) => NonVariableTerm::Structure(structure),
+			_ => bail!("Cannot convert term to non-variable term"),
 		})
 	}
 }
 
-impl From<FirstOrderTerm> for Term {
-	fn from(val: FirstOrderTerm) -> Self {
+impl From<NonVariableTerm> for Term {
+	fn from(val: NonVariableTerm) -> Self {
 		match val {
-			FirstOrderTerm::Constant(constant) => Term::Constant(constant),
-			FirstOrderTerm::Structure(structure) => Term::Structure(structure),
+			NonVariableTerm::Constant(constant) => Term::Constant(constant),
+			NonVariableTerm::Structure(structure) => Term::Structure(structure),
 		}
 	}
 }
 
-impl FromStr for FirstOrderTerm {
+impl FromStr for NonVariableTerm {
 	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {

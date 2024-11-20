@@ -3,21 +3,13 @@ use std::str::FromStr;
 use anyhow::{bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
 
-use crate::ast::{Atom, Atoms, Clause, Constant, Fact, Rule, Structure, Term, Terms, Variable};
+use crate::ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Rule, Structure, Term, Terms, Variable};
 
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
-
-impl FromStr for Term {
-	type Err = anyhow::Error;
-
-	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-		Parser::new(s).parse_term()
-	}
-}
 
 impl FromStr for Fact {
 	type Err = anyhow::Error;
@@ -30,11 +22,27 @@ impl FromStr for Fact {
 	}
 }
 
+impl FromStr for Term {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+		Parser::new(s).parse_term()
+	}
+}
+
 impl FromStr for Clause {
 	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		Parser::new(s).parse_clause()
+	}
+}
+
+impl FromStr for Clauses {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+		Parser::new(s).parse_clauses(None)
 	}
 }
 
@@ -92,8 +100,8 @@ fn lex_functor(lexer: &mut Lexer<Token>) -> String {
 
 struct Parser<'source>(Lexer<'source, Token>);
 
-impl Parser<'_> {
-	fn new(source: &str) -> Parser<'_> {
+impl<'a> Parser<'a> {
+	fn new(source: &'a str) -> Parser<'a> {
 		Parser(Token::lexer(source))
 	}
 
@@ -103,6 +111,30 @@ impl Parser<'_> {
 		} else {
 			None
 		}
+	}
+
+	fn has_next(&self) -> bool {
+		let next = self.0.clone().next();
+
+		// with a logos lexer, the outer Option denotes whether there is a next lexed token to be parsed, while the inner Result denotes whether the token was lexed successfully
+		matches!(next, Some(_))
+	}
+
+	fn parse_clauses(&mut self, minimum: Option<usize>) -> Result<Clauses> {
+		let mut clauses = Clauses::new();
+
+		while self.has_next() {
+			clauses.push(self.parse_clause()?);
+		}
+
+		if let Some(minimum) = minimum {
+			ensure!(
+				clauses.len() >= minimum,
+				"found zero clauses, expected at least {minimum}"
+			);
+		}
+
+		return Ok(clauses);
 	}
 
 	fn parse_clause(&mut self) -> Result<Clause> {

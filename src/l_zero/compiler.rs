@@ -15,7 +15,7 @@ use crate::{
 
 use crate::universal_compiler::MappingToken;
 
-use super::{FirstOrderTerm, L0Instruction, L0};
+use super::{L0Instruction, NonVariableTerm, L0};
 
 /*
 --------------------------------------------------------------------------------
@@ -23,7 +23,7 @@ use super::{FirstOrderTerm, L0Instruction, L0};
 --------------------------------------------------------------------------------
 */
 
-impl CompilableProgram<L0> for FirstOrderTerm {
+impl CompilableProgram<L0> for NonVariableTerm {
 	fn compile_as_program(self) -> Result<Compiled<L0>> {
 		let order = FlatteningOrder::for_program();
 		let context = VariableContext::Local("prg".into());
@@ -39,7 +39,7 @@ impl CompilableProgram<L0> for FirstOrderTerm {
 	}
 }
 
-impl CompilableQuery<L0> for FirstOrderTerm {
+impl CompilableQuery<L0> for NonVariableTerm {
 	fn compile_as_query(self) -> Result<Compiled<L0>> {
 		let order = FlatteningOrder::for_query();
 		let context = VariableContext::Query;
@@ -56,7 +56,7 @@ impl CompilableQuery<L0> for FirstOrderTerm {
 }
 
 fn flatten_term(
-	term: FirstOrderTerm,
+	term: NonVariableTerm,
 	order: FlatteningOrder,
 	context: VariableContext,
 ) -> (Vec<MappingToken>, VarToRegMapping) {
@@ -85,6 +85,7 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::GetStructure(functor, reg)),
 			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::UnifyValue(reg)),
 			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::UnifyVariable(reg)),
+			MappingToken::ArgumentRegister(_, _)                         => unimplemented!("this token cannot exist for L0, this is a compiler bug"),
 		};
 
 		encountered.insert(reg);
@@ -104,6 +105,7 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 			MappingToken::Functor(reg, functor)                          => (reg, L0Instruction::PutStructure(functor, reg)),
 			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L0Instruction::SetValue(reg)),
 			MappingToken::VarRegister(reg)                               => (reg, L0Instruction::SetVariable(reg)),
+			MappingToken::ArgumentRegister(_, _)                         => unimplemented!("this token cannot exist for L0, this is a compiler bug"),
 		};
 
 		encountered.insert(reg);
@@ -132,7 +134,7 @@ mod tests {
 		#[rustfmt::skip]
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)"
-				.parse::<FirstOrderTerm>()?
+				.parse::<NonVariableTerm>()?
 				.compile_as_program()?.instructions,
 			vec![
 				L0Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
@@ -158,7 +160,7 @@ mod tests {
 		#[rustfmt::skip]
 		assert_eq!(
 			"p(Z, h(Z,W), f(W))"
-				.parse::<FirstOrderTerm>()?
+				.parse::<NonVariableTerm>()?
 				.compile_as_query()?.instructions,
 			vec![
 				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),

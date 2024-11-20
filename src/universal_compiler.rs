@@ -140,6 +140,7 @@ impl FlatteningOrder {
 pub enum MappingToken {
 	Functor(VarRegister, Functor),
 	VarRegister(VarRegister),
+	ArgumentRegister(VarRegister, VarRegister),
 }
 
 fn allocate_register_id(
@@ -173,7 +174,17 @@ pub fn flatten_term(
 
 	// But this algorithm preserves it anyway
 
-	// TODO: Make sure an outer-level variable returns a variable token
+	// Handle separately the case where the root term is a variable
+	if let Term::Variable(_) = &outer_term {
+		let xn = allocate_register_id(&outer_term, variable_mapping, reserved_ids);
+		let ai = outer_id;
+
+		let token = MappingToken::ArgumentRegister(xn, ai);
+		return vec![token];
+	}
+
+	// The other cases still work fine:
+	// If we are in argument position, then outer_id should be Ai, which we indeed want to explicitly pass as the reg/id for a structure or a constant
 
 	let mut tokens = VecDeque::new();
 

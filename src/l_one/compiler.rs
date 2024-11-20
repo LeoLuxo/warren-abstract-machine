@@ -45,29 +45,33 @@ impl CompilableProgram<L1> for Facts {
 
 impl CompilableProgram<L1> for Fact {
 	fn compile_as_program(self) -> Result<Compiled<L1>> {
-		let fact_label: Identifier = self.get_functor().into();
+		let fact_label = self.get_functor().as_identifier();
 
 		let order = FlatteningOrder::for_program();
 		let context = VariableContext::Local(fact_label.clone());
 		let (tokens, var_mapping) = flatten_fact(self, order, context);
 
-		let instructions = compile_program_tokens(tokens);
+		let mut instructions = compile_program_tokens(tokens);
+		instructions.push(L1Instruction::Proceed);
 
 		Ok(Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
-			labels: hash_map!(fact_label: 0.into()),
+			labels: hash_map![fact_label: 0.into()],
 		})
 	}
 }
 
 impl CompilableQuery<L1> for Fact {
 	fn compile_as_query(self) -> Result<Compiled<L1>> {
+		let fact_label = self.get_functor().as_identifier();
+
 		let order = FlatteningOrder::for_query();
 		let context = VariableContext::Query;
 		let (tokens, var_mapping) = flatten_fact(self, order, context);
 
-		let instructions = compile_program_tokens(tokens);
+		let mut instructions = compile_program_tokens(tokens);
+		instructions.push(L1Instruction::Call(fact_label));
 
 		Ok(Compiled {
 			instructions,
@@ -82,9 +86,11 @@ fn flatten_fact(fact: Fact, order: FlatteningOrder, context: VariableContext) ->
 	let mut mapping = HashMap::new();
 	let mut reserved_registers = fact.terms.len().into();
 
+	// TODO: order of tokens is wrong
+
 	for (i, term) in fact.0.terms.into_iter().enumerate() {
 		tokens.extend(universal_compiler::flatten_term(
-			i.into(),
+			(i + 1).into(),
 			term,
 			&mut mapping,
 			&mut reserved_registers,
@@ -104,9 +110,11 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 	for token in tokens {
 		#[rustfmt::skip]
 		let (reg, inst) = match token {
-			MappingToken::Functor(reg, functor)                          => (reg, L1Instruction::GetStructure(functor, reg)),
-			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L1Instruction::UnifyValue(reg)),
-			MappingToken::VarRegister(reg)                               => (reg, L1Instruction::UnifyVariable(reg)),
+			MappingToken::Functor(reg, functor)                                 => (reg, L1Instruction::GetStructure(functor, reg)),
+			MappingToken::VarRegister(reg) if encountered.contains(&reg)        => (reg, L1Instruction::UnifyValue(reg)),
+			MappingToken::VarRegister(reg)                                      => (reg, L1Instruction::UnifyVariable(reg)),
+			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::GetVariable(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::GetValue(xn, ai)),
 		};
 
 		encountered.insert(reg);
@@ -123,9 +131,11 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 	for token in tokens {
 		#[rustfmt::skip]
 		let (reg, inst) = match token {
-			MappingToken::Functor(reg, functor)                          => (reg, L1Instruction::PutStructure(functor, reg)),
-			MappingToken::VarRegister(reg) if encountered.contains(&reg) => (reg, L1Instruction::SetValue(reg)),
-			MappingToken::VarRegister(reg)                               => (reg, L1Instruction::SetVariable(reg)),
+			MappingToken::Functor(reg, functor)                                 => (reg, L1Instruction::PutStructure(functor, reg)),
+			MappingToken::VarRegister(reg) if encountered.contains(&reg)        => (reg, L1Instruction::SetValue(reg)),
+			MappingToken::VarRegister(reg)                                      => (reg, L1Instruction::SetVariable(reg)),
+			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::PutVariable(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::PutValue(xn, ai)),
 		};
 
 		encountered.insert(reg);
@@ -149,52 +159,50 @@ mod tests {
 	use anyhow::Result;
 	use velcro::vec;
 
-	// #[test]
-	// fn test_compile_program() -> Result<()> {
-	// 	#[rustfmt::skip]
-	// 	assert_eq!(
-	// 		"p(f(X), h(Y, f(a)), Y)"
-	// 			.parse::<FirstOrderTerm>()?
-	// 			.compile_as_program().instructions,
-	// 		vec![
-	// 			L1Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
-	// 			L1Instruction::UnifyVariable(2_usize.into()),
-	// 			L1Instruction::UnifyVariable(3_usize.into()),
-	// 			L1Instruction::UnifyVariable(4_usize.into()),
-	// 			L1Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 2_usize.into() ),
-	// 			L1Instruction::UnifyVariable(5_usize.into()),
-	// 			L1Instruction::GetStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
-	// 			L1Instruction::UnifyValue(4_usize.into()),
-	// 			L1Instruction::UnifyVariable(6_usize.into()),
-	// 			L1Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 6_usize.into() ),
-	// 			L1Instruction::UnifyVariable(7_usize.into()),
-	// 			L1Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, 7_usize.into() ),
-	// 		]
-	// 	);
+	#[test]
+	fn test_compile_program() -> Result<()> {
+		#[rustfmt::skip]
+		assert_eq!(
+			"p(f(X), h(Y, f(a)), Y)."
+				.parse::<Facts>()?
+				.compile_as_program()?.instructions,
+			vec![
+				L1Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 1_usize.into() ),
+				L1Instruction::UnifyVariable(4_usize.into()),
+				L1Instruction::GetStructure(Functor { name: "h".into(), arity: 2 }, 2_usize.into() ),
+				L1Instruction::UnifyVariable(5_usize.into()),
+				L1Instruction::UnifyVariable(6_usize.into()),
+				L1Instruction::GetValue(5_usize.into(), 3_usize.into()),
+				L1Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 6_usize.into() ),
+				L1Instruction::UnifyVariable(7_usize.into()),
+				L1Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, 7_usize.into() ),
+				L1Instruction::Proceed
+			]
+		);
 
-	// 	Ok(())
-	// }
+		Ok(())
+	}
 
-	// #[test]
-	// fn test_compile_query() -> Result<()> {
-	// 	#[rustfmt::skip]
-	// 	assert_eq!(
-	// 		"p(Z, h(Z,W), f(W))"
-	// 			.parse::<FirstOrderTerm>()?
-	// 			.compile_as_query().instructions,
-	// 		vec![
-	// 			L1Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
-	// 			L1Instruction::SetVariable(2_usize.into()),
-	// 			L1Instruction::SetVariable(5_usize.into()),
-	// 			L1Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, 4_usize.into() ),
-	// 			L1Instruction::SetValue(5_usize.into()),
-	// 			L1Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
-	// 			L1Instruction::SetValue(2_usize.into()),
-	// 			L1Instruction::SetValue(3_usize.into()),
-	// 			L1Instruction::SetValue(4_usize.into()),
-	// 		]
-	// 	);
+	#[test]
+	fn test_compile_query() -> Result<()> {
+		// #[rustfmt::skip]
+		// assert_eq!(
+		// 	"p(Z, h(Z,W), f(W))"
+		// 		.parse::<Fact>()?
+		// 		.compile_as_query()?.instructions,
+		// 	vec![
+		// 		L1Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
+		// 		L1Instruction::SetVariable(2_usize.into()),
+		// 		L1Instruction::SetVariable(5_usize.into()),
+		// 		L1Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, 4_usize.into() ),
+		// 		L1Instruction::SetValue(5_usize.into()),
+		// 		L1Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
+		// 		L1Instruction::SetValue(2_usize.into()),
+		// 		L1Instruction::SetValue(3_usize.into()),
+		// 		L1Instruction::SetValue(4_usize.into()),
+		// 	]
+		// );
 
-	// 	Ok(())
-	// }
+		Ok(())
+	}
 }

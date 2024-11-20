@@ -1,14 +1,15 @@
 use std::{fmt, str::FromStr};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Constant, Fact, Functor, Identifier, Structure, Term},
+	ast::{Clauses, Constant, Fact, Functor, Identifier, Structure, Term},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
 	subst::{ExtractSubstitution, StaticMapping},
-	CompilableProgram, CompilableQuery, Compiled, Interpreter, Language, Substitution,
+	universal_compiler::Compiled,
+	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution,
 };
 
 /*
@@ -50,21 +51,7 @@ impl Interpreter<L1> for L1Interpreter {
 	}
 
 	fn submit_query(&mut self, query: Fact) -> Result<Substitution> {
-		// let compiled_query = query.compile_as_query();
-
-		// let mut machine = M1::new();
-
-		// machine.execute(&compiled_query.instructions)?;
-		// machine.execute(&self.compiled_program.instructions)?;
-
-		// let substitution = machine.extract_substitution(&compiled_query)?;
-
-		// println!("{}", compiled_query);
-		// println!("{}", self.compiled_program);
-		// println!("{}", machine);
-		// println!("{}", substitution);
-
-		// Ok(substitution)
+		todo!()
 	}
 }
 
@@ -75,7 +62,7 @@ impl Interpreter<L1> for L1Interpreter {
 */
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum L1Instruction {
+pub enum L1Instruction {
 	Call(Identifier),
 	Proceed,
 
@@ -149,10 +136,22 @@ impl StaticMapping for L1Instruction {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, IntoIterator, Index, IndexMut)]
 #[display("{}", display_iter!(_0, ", "))]
-struct Facts(Vec<Fact>);
+pub struct Facts(Vec<Fact>);
 
 impl Facts {
 	pub fn new() -> Self {
 		Self(Vec::new())
+	}
+}
+
+impl FromStr for Facts {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+		Ok(s.parse::<Clauses>()?
+			.into_iter()
+			.map(|c| c.try_unwrap_fact().context("Expected fact but parsed rule instead"))
+			.collect::<Result<Vec<_>>>()?
+			.into())
 	}
 }

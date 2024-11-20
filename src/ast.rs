@@ -19,6 +19,17 @@ use crate::display_iter;
 #[from(forward)]
 pub struct Identifier(Cow<'static, str>);
 
+/// Represents a sequence of clauses.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, IntoIterator, Index, IndexMut)]
+#[display("{}", display_iter!(_0, "\n"))]
+pub struct Clauses(Vec<Clause>);
+
+impl Clauses {
+	pub fn new() -> Self {
+		Self(Vec::new())
+	}
+}
+
 /// Represents a Prolog clause, which is either a fact or a rule.
 #[derive(Clone, Debug, PartialEq, Eq, IsVariant, TryUnwrap)]
 pub enum Clause {
@@ -176,6 +187,16 @@ impl Functor {
 	pub fn is_constant(&self) -> bool {
 		self.arity == 0
 	}
+
+	pub fn as_identifier(&self) -> Identifier {
+		format!("{}/{}", self.name, self.arity).into()
+	}
+}
+
+impl From<Functor> for Identifier {
+	fn from(value: Functor) -> Self {
+		value.as_identifier()
+	}
 }
 
 pub trait GetFunctor {
@@ -206,12 +227,6 @@ impl GetFunctor for Constant {
 			name: self.0.clone(),
 			arity: 0,
 		}
-	}
-}
-
-impl From<Functor> for Identifier {
-	fn from(value: Functor) -> Self {
-		format!("{}/{}", value.name, value.arity).into()
 	}
 }
 
