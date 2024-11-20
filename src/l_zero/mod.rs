@@ -106,15 +106,17 @@ impl StaticMapping for L0Instruction {
 			L0Instruction::PutStructure(_, _) => Some(2),
 			L0Instruction::SetVariable(_) => Some(1),
 			L0Instruction::SetValue(_) => Some(1),
+
 			_ => None,
 		}
 		.map(Into::into)
 	}
 
-	fn static_variable_entry_point(&self, register: &VarRegister) -> bool {
+	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress> {
 		match self {
-			L0Instruction::SetVariable(reg) if reg == register => true,
-			_ => false,
+			L0Instruction::SetVariable(reg) if reg == register => Some(pre_heap_top),
+
+			_ => None,
 		}
 	}
 }

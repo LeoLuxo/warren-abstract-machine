@@ -118,15 +118,25 @@ impl StaticMapping for L1Instruction {
 			L1Instruction::PutStructure(_, _) => Some(2),
 			L1Instruction::SetVariable(_) => Some(1),
 			L1Instruction::SetValue(_) => Some(1),
+
+			L1Instruction::Proceed => Some(0),
+			L1Instruction::PutVariable(_, _) => Some(1),
+			L1Instruction::PutValue(_, _) => Some(0),
+			L1Instruction::GetVariable(_, _) => Some(0),
+			L1Instruction::GetValue(_, _) => Some(0),
+
 			_ => None,
 		}
 		.map(Into::into)
 	}
 
-	fn static_variable_entry_point(&self, register: &VarRegister) -> bool {
+	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress> {
 		match self {
-			L1Instruction::SetVariable(reg) if reg == register => true,
-			_ => false,
+			L1Instruction::SetVariable(reg) if reg == register => Some(pre_heap_top),
+
+			L1Instruction::PutVariable(xn, _) if xn == register => Some(pre_heap_top),
+
+			_ => None,
 		}
 	}
 }

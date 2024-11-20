@@ -160,7 +160,7 @@ impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
 
 pub trait StaticMapping {
 	fn static_heap_size(&self) -> Option<HeapAddress>;
-	fn static_variable_entry_point(&self, register: &VarRegister) -> bool;
+	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress>;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
@@ -216,18 +216,14 @@ where
 	let mut heap_top = HeapAddress::default();
 
 	for instruction in instructions {
+		if let Some(address) = instruction.static_variable_entry_point(register, heap_top) {
+			return Some(address);
+		}
+
 		if let Some(ep) = instruction.static_heap_size() {
 			heap_top += ep;
 		} else {
 			break;
-		}
-
-		if instruction.static_variable_entry_point(register) {
-			if *heap_top > 0 {
-				return Some(heap_top - 1);
-			} else {
-				break;
-			}
 		}
 	}
 
