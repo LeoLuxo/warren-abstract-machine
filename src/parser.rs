@@ -1,15 +1,52 @@
-use std::str::FromStr;
+use std::{str::FromStr};
 
 use anyhow::{bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
 
-use crate::ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Rule, Structure, Term, Terms, Variable};
+use crate::{
+	ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Functor, Rule, Structure, Term, Terms, Variable},
+	machine_types::VarRegister,
+};
 
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
+
+impl FromStr for VarRegister {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let first_char = s.get(0..=0).context("VarRegister missing its letter")?;
+		ensure!(matches!(first_char, "X" | "A"), "Invalid letter for VarRegister");
+
+		let reg = s
+			.get(1..)
+			.context("VarRegister missing its register number")?
+			.parse::<usize>()?
+			.into();
+
+		Ok(reg)
+	}
+}
+
+impl FromStr for Functor {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut split = s.split('/');
+		let name = split.next().context("functor missing name")?.to_owned();
+		let arity = split.next().context("functor missing arity")?.parse()?;
+
+		ensure!(!name.is_empty(), "functor name must be at least 1 character");
+
+		Ok(Self {
+			name: name.into(),
+			arity,
+		})
+	}
+}
 
 impl FromStr for Fact {
 	type Err = anyhow::Error;
@@ -117,7 +154,7 @@ impl<'a> Parser<'a> {
 		let next = self.0.clone().next();
 
 		// with a logos lexer, the outer Option denotes whether there is a next lexed token to be parsed, while the inner Result denotes whether the token was lexed successfully
-		matches!(next, Some(_))
+		next.is_some()
 	}
 
 	fn parse_clauses(&mut self, minimum: Option<usize>) -> Result<Clauses> {
@@ -134,7 +171,7 @@ impl<'a> Parser<'a> {
 			);
 		}
 
-		return Ok(clauses);
+		Ok(clauses)
 	}
 
 	fn parse_clause(&mut self) -> Result<Clause> {
@@ -241,9 +278,72 @@ impl<'a> Parser<'a> {
 	}
 }
 
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 #[cfg(test)]
-mod test {
+mod tests {
 	use super::*;
+
+	#[test]
+	fn test_parse_functor() -> Result<()> {
+		assert_eq!(
+			"a/0".parse::<Functor>()?,
+			Functor {
+				name: "a".into(),
+				arity: 0
+			}
+		);
+
+		assert_eq!(
+			"f/1".parse::<Functor>()?,
+			Functor {
+				name: "f".into(),
+				arity: 1
+			}
+		);
+
+		assert_eq!(
+			"loooooooooooooooooong/123456".parse::<Functor>()?,
+			Functor {
+				name: "loooooooooooooooooong".into(),
+				arity: 123456
+			}
+		);
+
+		assert!("".parse::<Functor>().is_err());
+		assert!("/".parse::<Functor>().is_err());
+		assert!("f/".parse::<Functor>().is_err());
+		assert!("/0".parse::<Functor>().is_err());
+		assert!("//".parse::<Functor>().is_err());
+		assert!("f//".parse::<Functor>().is_err());
+		assert!("/a/".parse::<Functor>().is_err());
+		assert!("//0".parse::<Functor>().is_err());
+		assert!("f/a/0".parse::<Functor>().is_err());
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_parse_var_register() -> Result<()> {
+		assert_eq!(*"X0".parse::<VarRegister>()?, 0);
+		assert_eq!(*"X12345".parse::<VarRegister>()?, 12345);
+		assert_eq!(*"A0".parse::<VarRegister>()?, 0);
+		assert_eq!(*"A12345".parse::<VarRegister>()?, 12345);
+
+		assert!("".parse::<VarRegister>().is_err());
+		assert!("X".parse::<VarRegister>().is_err());
+		assert!("A".parse::<VarRegister>().is_err());
+		assert!("0".parse::<VarRegister>().is_err());
+		assert!("1232345".parse::<VarRegister>().is_err());
+		assert!("E1".parse::<VarRegister>().is_err());
+		assert!("AX1".parse::<VarRegister>().is_err());
+
+		Ok(())
+	}
 
 	#[test]
 	fn test_parse_term_success() {

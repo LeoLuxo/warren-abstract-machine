@@ -4,7 +4,9 @@ use std::{
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
-use derive_more::derive::{Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign};
+use derive_more::derive::{
+	Add, AddAssign, Deref, DerefMut, Display, From, FromStr, Into, IntoIterator, Sub, SubAssign,
+};
 
 use crate::{display_iter, display_map, Successor};
 
@@ -68,7 +70,7 @@ impl<C> Default for VarRegisters<C> {
 */
 
 #[derive(
-	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign,
+	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign, FromStr,
 )]
 pub struct HeapAddress(usize);
 

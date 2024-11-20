@@ -123,7 +123,7 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 
 #[cfg(test)]
 mod tests {
-	use crate::ast::Functor;
+	
 
 	use super::*;
 	use anyhow::Result;
@@ -137,18 +137,18 @@ mod tests {
 				.parse::<NonVariableTerm>()?
 				.compile_as_program()?.instructions,
 			vec![
-				L0Instruction::GetStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
+				L0Instruction::GetStructure("p/3".parse()?, 1_usize.into() ),
 				L0Instruction::UnifyVariable(2_usize.into()),
 				L0Instruction::UnifyVariable(3_usize.into()),
 				L0Instruction::UnifyVariable(4_usize.into()),
-				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 2_usize.into() ),
+				L0Instruction::GetStructure("f/1".parse()?, 2_usize.into() ),
 				L0Instruction::UnifyVariable(5_usize.into()),
-				L0Instruction::GetStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
+				L0Instruction::GetStructure("h/2".parse()?, 3_usize.into() ),
 				L0Instruction::UnifyValue(4_usize.into()),
 				L0Instruction::UnifyVariable(6_usize.into()),
-				L0Instruction::GetStructure(Functor { name: "f".into(), arity: 1 }, 6_usize.into() ),
+				L0Instruction::GetStructure("f/1".parse()?, 6_usize.into() ),
 				L0Instruction::UnifyVariable(7_usize.into()),
-				L0Instruction::GetStructure(Functor { name: "a".into(), arity: 0 }, 7_usize.into() ),
+				L0Instruction::GetStructure("a/0".parse()?, 7_usize.into() ),
 			]
 		);
 
@@ -163,12 +163,12 @@ mod tests {
 				.parse::<NonVariableTerm>()?
 				.compile_as_query()?.instructions,
 			vec![
-				L0Instruction::PutStructure(Functor { name: "h".into(), arity: 2 }, 3_usize.into() ),
+				L0Instruction::PutStructure("h/2".parse()?, 3_usize.into() ),
 				L0Instruction::SetVariable(2_usize.into()),
 				L0Instruction::SetVariable(5_usize.into()),
-				L0Instruction::PutStructure(Functor { name: "f".into(), arity: 1 }, 4_usize.into() ),
+				L0Instruction::PutStructure("f/1".parse()?, 4_usize.into() ),
 				L0Instruction::SetValue(5_usize.into()),
-				L0Instruction::PutStructure(Functor { name: "p".into(), arity: 3 }, 1_usize.into() ),
+				L0Instruction::PutStructure("p/3".parse()?, 1_usize.into() ),
 				L0Instruction::SetValue(2_usize.into()),
 				L0Instruction::SetValue(3_usize.into()),
 				L0Instruction::SetValue(4_usize.into()),

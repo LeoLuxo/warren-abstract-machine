@@ -174,7 +174,7 @@ impl<T> Default for Structure<T> {
 	}
 }
 
-type Arity = usize;
+pub type Arity = usize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
 #[display("{name}/{arity}")]

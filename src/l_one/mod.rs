@@ -1,15 +1,15 @@
 use std::{fmt, str::FromStr};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Clauses, Constant, Fact, Functor, Identifier, Structure, Term},
+	ast::{Clauses, Fact, Functor, Identifier},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
-	subst::{ExtractSubstitution, StaticMapping},
+	subst::{StaticMapping},
 	universal_compiler::Compiled,
-	CompilableProgram, CompilableQuery, Interpreter, Language, Substitution,
+	CompilableProgram, Interpreter, Language, Substitution,
 };
 
 /*
@@ -84,7 +84,7 @@ impl fmt::Display for L1Instruction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&match self {
 			L1Instruction::Call(identifier)           => format!("call {identifier}"),
-			L1Instruction::Proceed                    => format!("proceed"),
+			L1Instruction::Proceed                    => "proceed".to_string(),
 			L1Instruction::PutStructure(functor, reg) => format!("put_structure {functor}, {reg}"),
 			L1Instruction::SetVariable(reg)           => format!("set_variable {reg}"),
 			L1Instruction::SetValue(reg)              => format!("set_value {reg}"),
