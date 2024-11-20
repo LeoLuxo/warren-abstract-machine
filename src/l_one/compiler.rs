@@ -8,15 +8,13 @@ use velcro::hash_map;
 
 use crate::ast::Fact;
 use crate::ast::GetFunctor;
+use crate::subst::{VarToRegMapping, VariableContext};
 use crate::universal_compiler;
 use crate::universal_compiler::CompilableProgram;
 use crate::universal_compiler::CompilableQuery;
 use crate::universal_compiler::Compiled;
 use crate::universal_compiler::FlatteningOrder;
 use crate::universal_compiler::MappingToken;
-use crate::{
-	subst::{VarToRegMapping, VariableContext},
-};
 
 use super::Facts;
 use super::L1Instruction;
@@ -149,11 +147,8 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 
 #[cfg(test)]
 mod tests {
-	
 
-	
 	use anyhow::Result;
-	
 
 	#[test]
 	fn test_compile_program() -> Result<()> {

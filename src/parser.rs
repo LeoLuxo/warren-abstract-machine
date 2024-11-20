@@ -1,4 +1,4 @@
-use std::{str::FromStr};
+use std::str::FromStr;
 
 use anyhow::{bail, ensure, Context, Result};
 use logos::{Lexer, Logos};

@@ -7,7 +7,7 @@ use crate::{
 	ast::{Clauses, Fact, Functor, Identifier},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
-	subst::{StaticMapping},
+	subst::StaticMapping,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
 };

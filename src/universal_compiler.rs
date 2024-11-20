@@ -257,7 +257,7 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor(1_usize.into(), "c/0".parse()?)
+				MappingToken::Functor("X1".parse()?, "c/0".parse()?)
 			]
 		);
 
@@ -265,12 +265,12 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor(1_usize.into(), "p/5".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(2_usize.into()),
+				MappingToken::Functor("X1".parse()?, "p/5".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
 			]
 		);
 
@@ -278,18 +278,18 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor(2_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(7_usize.into()),
-				MappingToken::Functor(6_usize.into(), "a/0".parse()?),
-				MappingToken::Functor(5_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(6_usize.into()),
-				MappingToken::Functor(3_usize.into(), "h/2".parse()?),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::VarRegister(5_usize.into()),
-				MappingToken::Functor(1_usize.into(), "p/3".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
+				MappingToken::Functor("X2".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X7".parse()?),
+				MappingToken::Functor("X6".parse()?, "a/0".parse()?),
+				MappingToken::Functor("X5".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X6".parse()?),
+				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
 			]
 		);
 
@@ -297,15 +297,15 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor(3_usize.into(), "h/2".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(5_usize.into()),
-				MappingToken::Functor(4_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(5_usize.into()),
-				MappingToken::Functor(1_usize.into(), "p/3".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
+				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X4".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
 			]
 		);
 
@@ -318,7 +318,7 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor(1_usize.into(), "c/0".parse()?)
+				MappingToken::Functor("X1".parse()?, "c/0".parse()?)
 			]
 		);
 
@@ -326,12 +326,12 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor(1_usize.into(), "p/5".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(2_usize.into()),
+				MappingToken::Functor("X1".parse()?, "p/5".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
 			]
 		);
 
@@ -339,18 +339,18 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor(1_usize.into(), "p/3".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::Functor(2_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(5_usize.into()),
-				MappingToken::Functor(3_usize.into(), "h/2".parse()?),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::VarRegister(6_usize.into()),
-				MappingToken::Functor(6_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(7_usize.into()),
-				MappingToken::Functor(7_usize.into(), "a/0".parse()?),
+				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::Functor("X2".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::VarRegister("X6".parse()?),
+				MappingToken::Functor("X6".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X7".parse()?),
+				MappingToken::Functor("X7".parse()?, "a/0".parse()?),
 			]
 		);
 
@@ -358,15 +358,15 @@ mod tests {
 		assert_eq!(
 			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor(1_usize.into(), "p/3".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(3_usize.into()),
-				MappingToken::VarRegister(4_usize.into()),
-				MappingToken::Functor(3_usize.into(), "h/2".parse()?),
-				MappingToken::VarRegister(2_usize.into()),
-				MappingToken::VarRegister(5_usize.into()),
-				MappingToken::Functor(4_usize.into(), "f/1".parse()?),
-				MappingToken::VarRegister(5_usize.into()),
+				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X3".parse()?),
+				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
+				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X4".parse()?, "f/1".parse()?),
+				MappingToken::VarRegister("X5".parse()?),
 			]
 		);
 
