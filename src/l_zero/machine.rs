@@ -7,7 +7,7 @@ use crate::{
 	ast::{Constant, Functor, Structure},
 	enumerate, indent,
 	machine_types::{Heap, HeapAddress, VarRegister, VarRegisters},
-	subst::{ExtractSubstitution, SubstTerm, UnboundMapping},
+	subst::{ExtractSubstitution, SubstTerm, UnboundGenerator},
 };
 
 use super::{L0Instruction, L0};
@@ -222,7 +222,7 @@ impl M0 {
 fn extract_heap(
 	heap: &Heap<Cell>,
 	address: HeapAddress,
-	unbound_map: &mut UnboundMapping,
+	unbound_gen: &mut UnboundGenerator<HeapAddress>,
 	iterations: u32,
 ) -> Result<SubstTerm> {
 	match &heap[address] {
@@ -230,17 +230,17 @@ fn extract_heap(
 			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
 		}
 
-		Cell::REF(a) if address != *a => extract_heap(heap, *a, unbound_map, iterations + 1),
-		Cell::STR(a) if address != *a => extract_heap(heap, *a, unbound_map, iterations + 1),
+		Cell::REF(a) if address != *a => extract_heap(heap, *a, unbound_gen, iterations + 1),
+		Cell::STR(a) if address != *a => extract_heap(heap, *a, unbound_gen, iterations + 1),
 
-		Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
+		Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_gen.get_identifier(*a))),
 
 		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
 
 		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
 			name: name.clone(),
 			arguments: (1..=*arity)
-				.map(|i| extract_heap(heap, address + i, unbound_map, iterations + 1))
+				.map(|i| extract_heap(heap, address + i, unbound_gen, iterations + 1))
 				.collect::<Result<Vec<_>>>()?
 				.into(),
 		})),
@@ -250,39 +250,7 @@ fn extract_heap(
 }
 
 impl ExtractSubstitution<L0> for M0 {
-	fn extract_heap(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
-		extract_heap(&self.heap, address, unbound_map, 0)
+	fn extract_heap(&self, address: HeapAddress, unbound_gen: &mut UnboundGenerator<HeapAddress>) -> Result<SubstTerm> {
+		extract_heap(&self.heap, address, unbound_gen, 0)
 	}
 }
-// 	type Target = HeapAddress;
-
-// 	fn find_target(&self, reg: VarRegister) -> Result<Self::Target> {
-// 		match &self.var_registers[reg] {
-// 			Cell::REF(heap_address) => Ok(*heap_address),
-// 			Cell::STR(heap_address) => Ok(*heap_address),
-
-// 			_ => bail!("Found functor in variable registers, cannot extract substitution. This might be a bug."),
-// 		}
-// 	}
-
-// 	fn extract_target(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm> {
-// 		match &self.heap[address] {
-// 			Cell::REF(a) if address != *a => self.extract_target(*a, unbound_map),
-// 			Cell::STR(a) if address != *a => self.extract_target(*a, unbound_map),
-
-// 			Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_map.get(**a))),
-
-// 			Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
-
-// 			Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
-// 				name: name.clone(),
-// 				arguments: (1..=*arity)
-// 					.map(|i| self.extract_target(address + i, unbound_map))
-// 					.collect::<Result<Vec<_>>>()?
-// 					.into(),
-// 			})),
-
-// 			_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
-// 		}
-// 	}
-// }

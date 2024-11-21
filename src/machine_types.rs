@@ -70,7 +70,22 @@ impl<C> Default for VarRegisters<C> {
 */
 
 #[derive(
-	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign, FromStr,
+	Copy,
+	Clone,
+	Debug,
+	Default,
+	PartialEq,
+	Eq,
+	Hash,
+	Display,
+	Deref,
+	DerefMut,
+	From,
+	Add,
+	Sub,
+	AddAssign,
+	SubAssign,
+	FromStr,
 )]
 pub struct HeapAddress(usize);
 

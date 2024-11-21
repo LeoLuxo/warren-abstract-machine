@@ -107,8 +107,8 @@ fn compile_program_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 			MappingToken::Functor(reg, functor)                                 => (reg, L1Instruction::GetStructure(functor, reg)),
 			MappingToken::VarRegister(reg) if encountered.contains(&reg)        => (reg, L1Instruction::UnifyValue(reg)),
 			MappingToken::VarRegister(reg)                                      => (reg, L1Instruction::UnifyVariable(reg)),
-			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::GetVariable(xn, ai)),
-			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::GetValue(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::GetValue(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::GetVariable(xn, ai)),
 		};
 
 		encountered.insert(reg);
@@ -128,8 +128,8 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 			MappingToken::Functor(reg, functor)                                 => (reg, L1Instruction::PutStructure(functor, reg)),
 			MappingToken::VarRegister(reg) if encountered.contains(&reg)        => (reg, L1Instruction::SetValue(reg)),
 			MappingToken::VarRegister(reg)                                      => (reg, L1Instruction::SetVariable(reg)),
-			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::PutVariable(xn, ai)),
-			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::PutValue(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai) if encountered.contains(&xn) => (xn,  L1Instruction::PutValue(xn, ai)),
+			MappingToken::ArgumentRegister(xn, ai)                              => (xn,  L1Instruction::PutVariable(xn, ai)),
 		};
 
 		encountered.insert(reg);
@@ -148,28 +148,31 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 #[cfg(test)]
 mod tests {
 
+	use super::*;
 	use anyhow::Result;
 
 	#[test]
 	fn test_compile_program() -> Result<()> {
-		// #[rustfmt::skip]
-		// assert_eq!(
-		// 	"p(f(X), h(Y, f(a)), Y)."
-		// 		.parse::<Facts>()?
-		// 		.compile_as_program()?.instructions,
-		// 	vec![
-		// 		L1Instruction::GetStructure("f/1".parse()?, 1_usize.into() ),
-		// 		L1Instruction::UnifyVariable(4_usize.into()),
-		// 		L1Instruction::GetStructure("h/2".parse()?, 2_usize.into() ),
-		// 		L1Instruction::UnifyVariable(5_usize.into()),
-		// 		L1Instruction::UnifyVariable(6_usize.into()),
-		// 		L1Instruction::GetValue(5_usize.into(), 3_usize.into()),
-		// 		L1Instruction::GetStructure("f/1".parse()?, 6_usize.into() ),
-		// 		L1Instruction::UnifyVariable(7_usize.into()),
-		// 		L1Instruction::GetStructure("a/0".parse()?, 7_usize.into() ),
-		// 		L1Instruction::Proceed
-		// 	]
-		// );
+		// The wambook has the last getvalue X5,A3 3 instructions earlier,
+		// I posit that this variation doesn't change the validity of the instruction sequence
+		#[rustfmt::skip]
+		assert_eq!(
+			"p(f(X), h(Y, f(a)), Y)."
+				.parse::<Facts>()?
+				.compile_as_program()?.instructions,
+			vec![
+				L1Instruction::GetStructure("f/1".parse()?, "A1".parse()?),
+				L1Instruction::UnifyVariable("X4".parse()?),
+				L1Instruction::GetStructure("h/2".parse()?, "A2".parse()?),
+				L1Instruction::UnifyVariable("X5".parse()?),
+				L1Instruction::UnifyVariable("X6".parse()?),
+				L1Instruction::GetStructure("f/1".parse()?, "X6".parse()?),
+				L1Instruction::UnifyVariable("X7".parse()?),
+				L1Instruction::GetStructure("a/0".parse()?, "X7".parse()?),
+				L1Instruction::GetValue("X5".parse()?, "A3".parse()?),
+				L1Instruction::Proceed
+			]
+		);
 
 		Ok(())
 	}

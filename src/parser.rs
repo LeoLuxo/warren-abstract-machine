@@ -91,7 +91,7 @@ impl FromStr for Clauses {
 
 #[derive(Clone, Debug, Logos, Eq, PartialEq)]
 #[logos(skip r"[ \t\f]+")]
-enum Token {
+enum PrologToken {
 	/// A comment, a percent followed by any number of characters until the end of the line.
 	/// Is automatically skipped by the lexer
 	#[regex(r"%[^\n\r]*", logos::skip)]
@@ -126,23 +126,23 @@ enum Token {
 
 /// The callback to extract an identifier.
 /// Simply gets the string
-fn lex_identifier(lexer: &mut Lexer<Token>) -> String {
+fn lex_identifier(lexer: &mut Lexer<PrologToken>) -> String {
 	lexer.slice().to_owned()
 }
 
-fn lex_functor(lexer: &mut Lexer<Token>) -> String {
+fn lex_functor(lexer: &mut Lexer<PrologToken>) -> String {
 	let slice = lexer.slice();
 	slice[..slice.len() - 1].to_owned()
 }
 
-struct Parser<'source>(Lexer<'source, Token>);
+struct Parser<'source>(Lexer<'source, PrologToken>);
 
 impl<'a> Parser<'a> {
 	fn new(source: &'a str) -> Parser<'a> {
-		Parser(Token::lexer(source))
+		Parser(PrologToken::lexer(source))
 	}
 
-	fn next(&mut self) -> Option<Token> {
+	fn next(&mut self) -> Option<PrologToken> {
 		if let Some(Ok(token)) = self.0.next() {
 			Some(token)
 		} else {
@@ -179,9 +179,9 @@ impl<'a> Parser<'a> {
 
 		match self.next() {
 			Some(token) => match token {
-				Token::Dot => Ok(Clause::Fact(Fact(head))),
+				PrologToken::Dot => Ok(Clause::Fact(Fact(head))),
 
-				Token::Implies => Ok(Clause::Rule(Rule {
+				PrologToken::Implies => Ok(Clause::Rule(Rule {
 					head,
 					body: self.parse_atoms(Some(1))?,
 				})),
@@ -200,9 +200,9 @@ impl<'a> Parser<'a> {
 
 			match self.next() {
 				Some(token) => match token {
-					Token::Comma => continue,
+					PrologToken::Comma => continue,
 
-					Token::Dot => {
+					PrologToken::Dot => {
 						if let Some(minimum) = minimum {
 							ensure!(
 								atoms.len() >= minimum,
@@ -221,7 +221,7 @@ impl<'a> Parser<'a> {
 	}
 
 	fn parse_atom(&mut self) -> Result<Atom> {
-		if let Some(Token::Functor(functor)) = self.next() {
+		if let Some(PrologToken::Functor(functor)) = self.next() {
 			Ok(Atom {
 				name: functor.into(),
 				terms: self.parse_terms(Some(1))?,
@@ -234,14 +234,14 @@ impl<'a> Parser<'a> {
 	fn parse_term(&mut self) -> Result<Term> {
 		match self.next() {
 			Some(token) => match token {
-				Token::Functor(functor) => Ok(Term::Structure(Structure {
+				PrologToken::Functor(functor) => Ok(Term::Structure(Structure {
 					name: functor.into(),
 					arguments: self.parse_terms(Some(1))?,
 				})),
 
-				Token::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident.into()))),
+				PrologToken::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident.into()))),
 
-				Token::ConstantIdentifier(ident) => Ok(Term::Constant(Constant(ident.into()))),
+				PrologToken::ConstantIdentifier(ident) => Ok(Term::Constant(Constant(ident.into()))),
 
 				_ => bail!("syntax error, expected identifier"),
 			},
@@ -257,9 +257,9 @@ impl<'a> Parser<'a> {
 
 			match self.next() {
 				Some(token) => match token {
-					Token::Comma => continue,
+					PrologToken::Comma => continue,
 
-					Token::CloseParenthesis => {
+					PrologToken::CloseParenthesis => {
 						if let Some(minimum) = minimum {
 							ensure!(
 								terms.len() >= minimum,

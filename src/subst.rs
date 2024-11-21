@@ -10,6 +10,7 @@ use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoI
 use std::{
 	cmp::Ordering,
 	collections::{hash_map::Entry, BTreeMap, HashMap},
+	hash::Hash,
 	mem,
 };
 
@@ -194,16 +195,16 @@ impl Default for UnboundIdentifier {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From)]
-pub struct UnboundMapping {
-	map: HashMap<usize, UnboundIdentifier>,
-	next_id: UnboundIdentifier,
+pub struct UnboundGenerator<T: Hash + Eq> {
+	map: HashMap<T, UnboundIdentifier>,
+	next_identifier: UnboundIdentifier,
 }
 
-impl UnboundMapping {
-	pub fn get(&mut self, id: usize) -> UnboundIdentifier {
-		match self.map.entry(id) {
+impl<T: Hash + Eq> UnboundGenerator<T> {
+	pub fn get_identifier(&mut self, unique_value: T) -> UnboundIdentifier {
+		match self.map.entry(unique_value) {
 			Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_id.post_incr()),
+			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_identifier.post_incr()),
 		}
 	}
 }
@@ -235,7 +236,6 @@ where
 	for<'a> &'a V: IntoIterator<Item = &'a I>,
 	I: StaticMapping,
 {
-	// let asd = instructions.into_iter();
 	Ok(var_reg_mapping
 		.iter()
 		.filter_map(|(var, reg)| compute_var_heap_address(reg, instructions).map(|addr| (var.clone(), addr)))
@@ -246,25 +246,13 @@ pub trait ExtractSubstitution<L: Language>
 where
 	L::InstructionSet: StaticMapping,
 {
-	// fn find_target(&self, reg: VarRegister) -> Result<Self::Target>;
-	fn extract_heap(&self, address: HeapAddress, unbound_map: &mut UnboundMapping) -> Result<SubstTerm>;
-
-	// fn pre_extract_targets(&self, mapping: VarToRegMapping) -> Result<SubstTargetMapping<Self::Target>> {
-	// 	let mut target_mapping = BTreeMap::new();
-
-	// 	for (var, register) in mapping.into_iter() {
-	// 		let target = self.find_target(register)?;
-	// 		target_mapping.insert(var, target);
-	// 	}
-
-	// 	Ok(target_mapping)
-	// }
+	fn extract_heap(&self, address: HeapAddress, unbound_gen: &mut UnboundGenerator<HeapAddress>) -> Result<SubstTerm>;
 
 	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
 		var_heap_mapping.filter_by_context(VariableContext::Query);
 
 		let mut substitution = Substitution::default();
-		let mut unbound_map = UnboundMapping::default();
+		let mut unbound_map = UnboundGenerator::default();
 
 		for (var, address) in var_heap_mapping.into_iter() {
 			let entry = self.extract_heap(address, &mut unbound_map)?;
