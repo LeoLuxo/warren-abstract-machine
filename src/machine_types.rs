@@ -40,7 +40,7 @@ impl Successor for VarRegister {
 
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
 #[display("{}", display_map!(_0, "\n", "{} = {}"))]
-#[display(bounds(C: Display))]
+#[display(bounds(C: Display + Ord))]
 pub struct VarRegisters<C>(BTreeMap<VarRegister, C>);
 
 impl<C> VarRegisters<C> {
@@ -76,6 +76,8 @@ impl<C> Default for VarRegisters<C> {
 	Default,
 	PartialEq,
 	Eq,
+	PartialOrd,
+	Ord,
 	Hash,
 	Display,
 	Deref,

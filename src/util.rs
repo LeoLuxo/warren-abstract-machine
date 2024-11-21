@@ -55,30 +55,35 @@ macro_rules! enumerate {
 
 #[macro_export]
 macro_rules! display_iter {
-	($vec:expr) => {
-		display_iter!($vec, ", ")
+	($target:expr) => {
+		display_iter!($target, ", ")
 	};
 
-	($vec:expr, $sep:expr) => {
-		display_iter!($vec, $sep, "{}")
+	($target:expr, $sep:expr) => {
+		display_iter!($target, $sep, "{}")
 	};
 
-	($vec:expr, $sep:expr, $fmt:expr) => {
-		$vec.iter().map(|e| format!($fmt, e)).collect::<Vec<_>>().join($sep)
+	($target:expr, $sep:expr, $fmt:expr) => {
+		$target.iter().map(|e| format!($fmt, e)).collect::<Vec<_>>().join($sep)
 	};
 }
 
 #[macro_export]
 macro_rules! display_map {
-	($vec:expr) => {
-		display_map!($vec, ", ")
+	($target:expr) => {
+		display_map!($target, ", ")
 	};
 
-	($vec:expr, $sep:expr) => {
-		display_map!($vec, $sep, "{} -> {}")
+	($target:expr, $sep:expr) => {
+		display_map!($target, $sep, "{} -> {}")
 	};
 
-	($vec:expr, $sep:expr, $fmt:expr) => {{
-		$crate::util::Sorted::sorted($vec.iter().map(|(k, v)| format!($fmt, k, v)).collect::<Vec<_>>()).join($sep)
+	($target:expr, $sep:expr, $fmt:expr) => {{
+		let mut v = $target.iter().collect::<Vec<_>>();
+		v.sort_by(|(a, _), (b, _)| a.cmp(b));
+		v.into_iter()
+			.map(|(k, v)| format!($fmt, k, v))
+			.collect::<Vec<_>>()
+			.join($sep)
 	}};
 }

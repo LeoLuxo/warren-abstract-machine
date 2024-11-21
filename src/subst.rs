@@ -20,33 +20,32 @@ use std::{
 --------------------------------------------------------------------------------
 */
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum VariableContext {
 	#[default]
 	Query,
 	Local(Identifier),
 }
 
-impl PartialOrd for VariableContext {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		match (self, other) {
-			(Self::Query, Self::Local(_)) => Some(Ordering::Less),
-			(Self::Local(_), Self::Query) => Some(Ordering::Greater),
-			(Self::Local(a), Self::Local(b)) => a.partial_cmp(b),
-			(a, b) if a == b => Some(Ordering::Equal),
-			_ => None,
-		}
-	}
-}
+// impl PartialOrd for VariableContext {
+// 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+// 		match (self, other) {
+// 			(Self::Query, Self::Query) => Some(Ordering::Equal),
+// 			(Self::Query, Self::Local(_)) => Some(Ordering::Less),
+// 			(Self::Local(_), Self::Query) => Some(Ordering::Greater),
+// 			(Self::Local(a), Self::Local(b)) => a.partial_cmp(b),
+// 		}
+// 	}
+// }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, Hash, Display)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display("{}", match context { 
-	VariableContext::Query =>            format!("{}", variable),
+	VariableContext::Query             => format!("{}", variable),
 	VariableContext::Local(identifier) => format!("{}<{}>", variable, identifier)
 })]
 pub struct ScopedVariable {
-	variable: Variable,
 	context: VariableContext,
+	variable: Variable,
 }
 
 impl ScopedVariable {
@@ -60,16 +59,6 @@ impl ScopedVariable {
 
 	pub fn matches_context(&self, context: &VariableContext) -> bool {
 		self.context == *context
-	}
-}
-
-impl PartialOrd for ScopedVariable {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(
-			self.context
-				.partial_cmp(&other.context)?
-				.then(self.variable.partial_cmp(&other.variable)?),
-		)
 	}
 }
 
@@ -166,7 +155,7 @@ pub trait StaticMapping {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
 #[display("{{ {} }}", display_map!(_0))]
-pub struct Substitution(BTreeMap<ScopedVariable, SubstTerm>);
+pub struct Substitution(HashMap<ScopedVariable, SubstTerm>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Display, From)]
 #[from(forward)]
@@ -261,4 +250,9 @@ where
 
 		Ok(substitution)
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
 }

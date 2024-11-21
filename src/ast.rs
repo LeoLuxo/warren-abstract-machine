@@ -176,7 +176,7 @@ impl<T> Default for Structure<T> {
 
 pub type Arity = usize;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Constructor, Display, From)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Constructor, Display, From)]
 #[display("{name}/{arity}")]
 pub struct Functor {
 	pub name: Identifier,

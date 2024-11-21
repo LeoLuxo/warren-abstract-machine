@@ -34,7 +34,7 @@ enum MachineAddress {
 #[rustfmt::skip] impl AddAssign<usize> for MachineAddress { fn add_assign(&mut self, rhs: usize)  {  match self { MachineAddress::Register(var_register) => *var_register += rhs, MachineAddress::Heap(heap_address) => *heap_address += rhs, } } }
 #[rustfmt::skip] impl SubAssign<usize> for MachineAddress { fn sub_assign(&mut self, rhs: usize)  {  match self { MachineAddress::Register(var_register) => *var_register -= rhs, MachineAddress::Heap(heap_address) => *heap_address -= rhs, } } }
 
-#[derive(Clone, Debug, PartialEq, Eq, Display)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Display)]
 enum Cell {
 	#[display("REF {}", _0)]
 	REF(HeapAddress),
