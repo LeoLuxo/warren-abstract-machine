@@ -7,6 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
+use itertools::Itertools;
 use std::{
 	cmp::Ordering,
 	collections::{hash_map::Entry, BTreeMap, HashMap},
@@ -26,17 +27,6 @@ pub enum VariableContext {
 	Query,
 	Local(Identifier),
 }
-
-// impl PartialOrd for VariableContext {
-// 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-// 		match (self, other) {
-// 			(Self::Query, Self::Query) => Some(Ordering::Equal),
-// 			(Self::Query, Self::Local(_)) => Some(Ordering::Less),
-// 			(Self::Local(_), Self::Query) => Some(Ordering::Greater),
-// 			(Self::Local(a), Self::Local(b)) => a.partial_cmp(b),
-// 		}
-// 	}
-// }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display("{}", match context { 
@@ -157,7 +147,7 @@ pub trait StaticMapping {
 #[display("{{ {} }}", display_map!(_0))]
 pub struct Substitution(HashMap<ScopedVariable, SubstTerm>);
 
-#[derive(Clone, Debug, PartialEq, Eq, Display, From)]
+#[derive(Clone, Debug, Eq, Display, From)]
 #[from(forward)]
 pub enum SubstTerm {
 	Constant(Constant),
@@ -166,7 +156,43 @@ pub enum SubstTerm {
 	Structure(Structure<SubstTerm>),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, From, Display)]
+impl PartialEq for SubstTerm {
+	fn eq(&self, other: &Self) -> bool {
+		let mut term_stack = vec![self, other];
+		let mut unbound_mapping_left = UnboundGenerator::default();
+		let mut unbound_mapping_right = UnboundGenerator::default();
+
+		while !term_stack.is_empty() {
+			let result = match (term_stack.pop().unwrap(), term_stack.pop().unwrap()) {
+				(Self::Constant(l), Self::Constant(r)) => l == r,
+				(Self::Variable(l), Self::Variable(r)) => l == r,
+
+				(Self::Structure(l), Self::Structure(r)) => {
+					term_stack.extend(l.arguments.iter().interleave(r.arguments.iter()));
+
+					l.name == r.name && l.arguments.len() == r.arguments.len()
+				}
+
+				(Self::Unbound(l), Self::Unbound(r)) => {
+					let id_l = unbound_mapping_left.get_identifier(*l);
+					let id_r = unbound_mapping_right.get_identifier(*r);
+
+					id_l == id_r
+				}
+
+				_ => false,
+			};
+
+			if !result {
+				return false;
+			}
+		}
+
+		true
+	}
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, From, Display)]
 #[display("?{}", _0)]
 #[from(forward)]
 pub struct UnboundIdentifier(u32);
@@ -255,4 +281,61 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_subst_term_eq() {
+		assert_eq!(SubstTerm::Constant("a".into()), SubstTerm::Constant("a".into()));
+		assert_eq!(SubstTerm::Variable("X".into()), SubstTerm::Variable("X".into()));
+
+		assert_eq!(
+			SubstTerm::Unbound(UnboundIdentifier(1)),
+			SubstTerm::Unbound(UnboundIdentifier(1))
+		);
+
+		assert_ne!(SubstTerm::Constant("a".into()), SubstTerm::Constant("b".into()));
+		assert_ne!(SubstTerm::Variable("X".into()), SubstTerm::Variable("Y".into()));
+
+		assert_eq!(
+			SubstTerm::Unbound(UnboundIdentifier(1)),
+			SubstTerm::Unbound(UnboundIdentifier(2))
+		);
+
+		assert_eq!(
+			SubstTerm::Structure(Structure {
+				name: "f".into(),
+				arguments: vec![
+					SubstTerm::Unbound(UnboundIdentifier(1)),
+					SubstTerm::Unbound(UnboundIdentifier(1))
+				]
+				.into()
+			}),
+			SubstTerm::Structure(Structure {
+				name: "f".into(),
+				arguments: vec![
+					SubstTerm::Unbound(UnboundIdentifier(2)),
+					SubstTerm::Unbound(UnboundIdentifier(2))
+				]
+				.into()
+			})
+		);
+
+		assert_ne!(
+			SubstTerm::Structure(Structure {
+				name: "f".into(),
+				arguments: vec![
+					SubstTerm::Unbound(UnboundIdentifier(1)),
+					SubstTerm::Unbound(UnboundIdentifier(2))
+				]
+				.into()
+			}),
+			SubstTerm::Structure(Structure {
+				name: "f".into(),
+				arguments: vec![
+					SubstTerm::Unbound(UnboundIdentifier(2)),
+					SubstTerm::Unbound(UnboundIdentifier(2))
+				]
+				.into()
+			})
+		);
+	}
 }
