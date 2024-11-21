@@ -21,6 +21,44 @@ use std::{
 --------------------------------------------------------------------------------
 */
 
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, From, Display)]
+#[display("?{}", _0)]
+#[from(forward)]
+pub struct AnonymousIdentifier(u32);
+
+impl Successor for AnonymousIdentifier {
+	fn next(&self) -> Self {
+		Self(self.0 + 1)
+	}
+}
+
+impl Default for AnonymousIdentifier {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From)]
+pub struct AnonymousIdGenerator<T: Hash + Eq> {
+	map: HashMap<T, AnonymousIdentifier>,
+	next_identifier: AnonymousIdentifier,
+}
+
+impl<T: Hash + Eq> AnonymousIdGenerator<T> {
+	pub fn get_identifier(&mut self, unique_value: T) -> AnonymousIdentifier {
+		match self.map.entry(unique_value) {
+			Entry::Occupied(occupied_entry) => *occupied_entry.get(),
+			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_identifier.post_incr()),
+		}
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum VariableContext {
 	#[default]
@@ -151,7 +189,7 @@ pub struct Substitution(HashMap<ScopedVariable, SubstTerm>);
 #[from(forward)]
 pub enum SubstTerm {
 	Constant(Constant),
-	Unbound(UnboundIdentifier),
+	Unbound(AnonymousIdentifier),
 	Variable(Variable),
 	Structure(Structure<SubstTerm>),
 }
@@ -159,8 +197,8 @@ pub enum SubstTerm {
 impl PartialEq for SubstTerm {
 	fn eq(&self, other: &Self) -> bool {
 		let mut term_stack = vec![self, other];
-		let mut unbound_mapping_left = UnboundGenerator::default();
-		let mut unbound_mapping_right = UnboundGenerator::default();
+		let mut anon_mapping_left = AnonymousIdGenerator::default();
+		let mut anon_mapping_right = AnonymousIdGenerator::default();
 
 		while !term_stack.is_empty() {
 			let result = match (term_stack.pop().unwrap(), term_stack.pop().unwrap()) {
@@ -174,8 +212,8 @@ impl PartialEq for SubstTerm {
 				}
 
 				(Self::Unbound(l), Self::Unbound(r)) => {
-					let id_l = unbound_mapping_left.get_identifier(*l);
-					let id_r = unbound_mapping_right.get_identifier(*r);
+					let id_l = anon_mapping_left.get_identifier(*l);
+					let id_r = anon_mapping_right.get_identifier(*r);
 
 					id_l == id_r
 				}
@@ -189,38 +227,6 @@ impl PartialEq for SubstTerm {
 		}
 
 		true
-	}
-}
-
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, From, Display)]
-#[display("?{}", _0)]
-#[from(forward)]
-pub struct UnboundIdentifier(u32);
-
-impl Successor for UnboundIdentifier {
-	fn next(&self) -> Self {
-		Self(self.0 + 1)
-	}
-}
-
-impl Default for UnboundIdentifier {
-	fn default() -> Self {
-		Self(1)
-	}
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From)]
-pub struct UnboundGenerator<T: Hash + Eq> {
-	map: HashMap<T, UnboundIdentifier>,
-	next_identifier: UnboundIdentifier,
-}
-
-impl<T: Hash + Eq> UnboundGenerator<T> {
-	pub fn get_identifier(&mut self, unique_value: T) -> UnboundIdentifier {
-		match self.map.entry(unique_value) {
-			Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_identifier.post_incr()),
-		}
 	}
 }
 
@@ -261,16 +267,17 @@ pub trait ExtractSubstitution<L: Language>
 where
 	L::InstructionSet: StaticMapping,
 {
-	fn extract_heap(&self, address: HeapAddress, unbound_gen: &mut UnboundGenerator<HeapAddress>) -> Result<SubstTerm>;
+	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
+		-> Result<SubstTerm>;
 
 	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
 		var_heap_mapping.filter_by_context(VariableContext::Query);
 
 		let mut substitution = Substitution::default();
-		let mut unbound_map = UnboundGenerator::default();
+		let mut anon_map = AnonymousIdGenerator::default();
 
 		for (var, address) in var_heap_mapping.into_iter() {
-			let entry = self.extract_heap(address, &mut unbound_map)?;
+			let entry = self.extract_heap(address, &mut anon_map)?;
 			substitution.insert(var, entry);
 		}
 
@@ -288,32 +295,32 @@ mod tests {
 		assert_eq!(SubstTerm::Variable("X".into()), SubstTerm::Variable("X".into()));
 
 		assert_eq!(
-			SubstTerm::Unbound(UnboundIdentifier(1)),
-			SubstTerm::Unbound(UnboundIdentifier(1))
+			SubstTerm::Unbound(AnonymousIdentifier(1)),
+			SubstTerm::Unbound(AnonymousIdentifier(1))
 		);
 
 		assert_ne!(SubstTerm::Constant("a".into()), SubstTerm::Constant("b".into()));
 		assert_ne!(SubstTerm::Variable("X".into()), SubstTerm::Variable("Y".into()));
 
 		assert_eq!(
-			SubstTerm::Unbound(UnboundIdentifier(1)),
-			SubstTerm::Unbound(UnboundIdentifier(2))
+			SubstTerm::Unbound(AnonymousIdentifier(1)),
+			SubstTerm::Unbound(AnonymousIdentifier(2))
 		);
 
 		assert_eq!(
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
 				arguments: vec![
-					SubstTerm::Unbound(UnboundIdentifier(1)),
-					SubstTerm::Unbound(UnboundIdentifier(1))
+					SubstTerm::Unbound(AnonymousIdentifier(1)),
+					SubstTerm::Unbound(AnonymousIdentifier(1))
 				]
 				.into()
 			}),
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
 				arguments: vec![
-					SubstTerm::Unbound(UnboundIdentifier(2)),
-					SubstTerm::Unbound(UnboundIdentifier(2))
+					SubstTerm::Unbound(AnonymousIdentifier(2)),
+					SubstTerm::Unbound(AnonymousIdentifier(2))
 				]
 				.into()
 			})
@@ -323,16 +330,16 @@ mod tests {
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
 				arguments: vec![
-					SubstTerm::Unbound(UnboundIdentifier(1)),
-					SubstTerm::Unbound(UnboundIdentifier(2))
+					SubstTerm::Unbound(AnonymousIdentifier(1)),
+					SubstTerm::Unbound(AnonymousIdentifier(2))
 				]
 				.into()
 			}),
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
 				arguments: vec![
-					SubstTerm::Unbound(UnboundIdentifier(2)),
-					SubstTerm::Unbound(UnboundIdentifier(2))
+					SubstTerm::Unbound(AnonymousIdentifier(2)),
+					SubstTerm::Unbound(AnonymousIdentifier(2))
 				]
 				.into()
 			})

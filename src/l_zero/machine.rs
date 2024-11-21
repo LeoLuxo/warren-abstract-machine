@@ -7,7 +7,7 @@ use crate::{
 	ast::{Constant, Functor, Structure},
 	enumerate, indent,
 	machine_types::{Heap, HeapAddress, VarRegister, VarRegisters},
-	subst::{ExtractSubstitution, SubstTerm, UnboundGenerator},
+	subst::{AnonymousIdGenerator, ExtractSubstitution, SubstTerm},
 };
 
 use super::{L0Instruction, L0};
@@ -222,7 +222,7 @@ impl M0 {
 fn extract_heap(
 	heap: &Heap<Cell>,
 	address: HeapAddress,
-	unbound_gen: &mut UnboundGenerator<HeapAddress>,
+	anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
 	iterations: u32,
 ) -> Result<SubstTerm> {
 	match &heap[address] {
@@ -230,17 +230,17 @@ fn extract_heap(
 			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
 		}
 
-		Cell::REF(a) if address != *a => extract_heap(heap, *a, unbound_gen, iterations + 1),
-		Cell::STR(a) if address != *a => extract_heap(heap, *a, unbound_gen, iterations + 1),
+		Cell::REF(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
+		Cell::STR(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
 
-		Cell::REF(a) => Ok(SubstTerm::Unbound(unbound_gen.get_identifier(*a))),
+		Cell::REF(a) => Ok(SubstTerm::Unbound(anon_gen.get_identifier(*a))),
 
 		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
 
 		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
 			name: name.clone(),
 			arguments: (1..=*arity)
-				.map(|i| extract_heap(heap, address + i, unbound_gen, iterations + 1))
+				.map(|i| extract_heap(heap, address + i, anon_gen, iterations + 1))
 				.collect::<Result<Vec<_>>>()?
 				.into(),
 		})),
@@ -250,7 +250,11 @@ fn extract_heap(
 }
 
 impl ExtractSubstitution<L0> for M0 {
-	fn extract_heap(&self, address: HeapAddress, unbound_gen: &mut UnboundGenerator<HeapAddress>) -> Result<SubstTerm> {
-		extract_heap(&self.heap, address, unbound_gen, 0)
+	fn extract_heap(
+		&self,
+		address: HeapAddress,
+		anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
+	) -> Result<SubstTerm> {
+		extract_heap(&self.heap, address, anon_gen, 0)
 	}
 }
