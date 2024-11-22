@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{ops::Index, str::FromStr};
 
 use anyhow::{bail, ensure, Context, Ok, Result};
 use logos::{Lexer, Logos};
@@ -31,40 +31,26 @@ macro_rules! parse_regex {
 	}};
 }
 
-macro_rules! try_each_and_map {
-	{$($any:expr),+} => {
-		try_each_and_map!((|x| { x }); $($any),*)
+macro_rules! either {
+	{$first:expr; $($others:expr);+ $(;)?} => {
+		either!($first).or_else(|_| either!($($others);*))
 	};
 
-	{($map:expr); $first:expr, $($others:expr),+} => {
-		try_each_and_map!(($map); $first).or_else(|_| try_each_and_map!(($map); $($others),*))
-	};
-
-	{($map:expr); $each:expr} => {
-		$each.map($map)
+	{$action:expr} => {
+		$action
 	};
 }
 
-macro_rules! parse_sequence {
-	($in:expr) => {
-		parse_sequence!($in, ",")
+macro_rules! impl_fromstr_from_parsable {
+	($type:ty) => {
+		impl FromStr for $type {
+			type Err = anyhow::Error;
+
+			fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+				Parser::parse(s)
+			}
+		}
 	};
-
-	($in:expr, $sep:expr) => {{
-		dbg!($in).split($sep).map(str::trim)
-	}};
-
-	($in:expr, $sep:expr, parse: $parse:ty) => {{
-		parse_sequence!($in, $sep).map(str::parse::<$parse>)
-	}};
-
-	($in:expr, $sep:expr, collect: $collect:ty) => {{
-		parse_sequence!($in, $sep).collect::<Result<$collect>>()
-	}};
-
-	($in:expr, $sep:expr, parse: $parse:ty, collect: $collect:ty) => {{
-		parse_sequence!($in, $sep, parse: $parse).collect::<Result<$collect>>()
-	}};
 }
 
 /*
@@ -73,10 +59,8 @@ macro_rules! parse_sequence {
 --------------------------------------------------------------------------------
 */
 
-type Err = anyhow::Error;
-
 impl FromStr for VarRegister {
-	type Err = Err;
+	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self> {
 		let reg = parse_regex!(s, r"^(?:X|A)(\d+)$");
@@ -87,7 +71,7 @@ impl FromStr for VarRegister {
 }
 
 impl FromStr for Functor {
-	type Err = Err;
+	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self> {
 		let [name, arity] = parse_regex!(s, r"^(\w+?)/(\d+?)$", 2);
@@ -100,7 +84,7 @@ impl FromStr for Functor {
 }
 
 impl FromStr for Substitution {
-	type Err = Err;
+	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self> {
 		// let outer_re = Regex::new(r"{\s*(.*?)\s*}").unwrap();
@@ -110,123 +94,412 @@ impl FromStr for Substitution {
 	}
 }
 
-impl FromStr for Clauses {
-	type Err = Err;
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
-	fn from_str(s: &str) -> Result<Self> {
-		parse_sequence!(s, "\n", parse: Clause, collect: Vec<_>).map(Into::into)
+impl Parsable for Clauses {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_sequence::<Clause>("\n", None).map(Into::into)
 	}
 }
 
-impl FromStr for Clause {
-	type Err = Err;
-
-	fn from_str(s: &str) -> Result<Self> {
-		try_each_and_map! {(Into::into);
-			s.parse::<Fact>(),
-			s.parse::<Rule>()
+impl Parsable for Clause {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		either! {
+			parser.match_type::<Fact>().map(Into::into);
+			parser.match_type::<Rule>().map(Into::into);
 		}
 	}
 }
 
-impl FromStr for Fact {
-	type Err = Err;
+impl Parsable for Fact {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let atom = parser.match_type::<Atom>()?;
+		parser.match_token(".")?;
 
-	fn from_str(s: &str) -> Result<Self> {
-		let atom = parse_regex!(s, r"^([^.:-]*?)\.$").parse::<Atom>()?;
-
-		Ok(Fact(atom))
+		Ok(atom.into())
 	}
 }
 
-impl FromStr for Rule {
-	type Err = Err;
+impl Parsable for Rule {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let head = parser.match_type::<Atom>()?;
+		parser.match_token(":-")?;
+		let body = parser.match_sequence::<Atom>(",", Some(1))?;
+		parser.match_token(".")?;
 
-	fn from_str(s: &str) -> Result<Self> {
-		let [head, body] = parse_regex!(s, r"^([^.:-]*?):-([^.:-]*?)\.$", 2);
-
-		Ok(Rule {
-			head: head.parse()?,
-			body: body.parse()?,
-		})
+		Ok((head, body.into()).into())
 	}
 }
 
-impl FromStr for Atoms {
-	type Err = Err;
-
-	fn from_str(s: &str) -> Result<Self> {
-		parse_sequence!(s, ",", parse: Atom, collect: Vec<_>).map(Into::into)
+impl Parsable for Atoms {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_sequence::<Atom>(",", None).map(Into::into)
 	}
 }
 
-impl FromStr for Atom {
-	type Err = Err;
+impl Parsable for Atom {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let name = parser.match_identifier()?.to_owned();
+		parser.match_token("(")?;
+		let terms = parser.match_sequence::<Term>(",", Some(1))?;
+		parser.match_token(")")?;
 
-	fn from_str(s: &str) -> Result<Self> {
-		let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
-
-		Ok(Atom {
-			name: name.to_owned().into(),
-			terms: terms.parse()?,
-		})
+		Ok((name.into(), terms.into()).into())
 	}
 }
 
-impl FromStr for Terms {
-	type Err = Err;
-
-	fn from_str(s: &str) -> Result<Self> {
-		parse_sequence!(s, ",", parse: Term, collect: Vec<_>).map(Into::into)
+impl Parsable for Terms {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_sequence::<Term>(",", None).map(Into::into)
 	}
 }
 
-impl FromStr for Term {
-	type Err = Err;
-
-	fn from_str(s: &str) -> Result<Self> {
-		try_each_and_map! {(Into::into);
-			s.parse::<Constant>(),
-			s.parse::<Variable>(),
-			s.parse::<Structure>()
+impl Parsable for Term {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		either! {
+			parser.match_type::<Structure>().map(Into::into);
+			parser.match_type::<Variable>().map(Into::into);
+			parser.match_type::<Constant>().map(Into::into);
 		}
-		// let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
-
-		// Ok(Atom {
-		// 	name: name.into(),
-		// 	terms: terms.parse()?,
-		// })
 	}
 }
 
-impl FromStr for Constant {
-	type Err = Err;
+impl Parsable for Structure {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let name = parser.match_identifier()?.to_owned();
+		parser.match_token("(")?;
+		let terms = parser.match_sequence::<Term>(",", Some(1))?;
+		parser.match_token(")")?;
 
-	fn from_str(s: &str) -> Result<Self> {
-		Ok(parse_regex!(s, r"^([a-z0-9][a-zA-Z0-9]*)$").to_owned().into())
+		Ok((name.into(), terms.into()).into())
 	}
 }
 
-impl FromStr for Variable {
-	type Err = Err;
+impl Parsable for Constant {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let constant = either! {
+			parser.match_signed_integer().map(ToOwned::to_owned);
+			parser.match_lowercase_identifier().map(ToOwned::to_owned);
+		}?;
 
-	fn from_str(s: &str) -> Result<Self> {
-		Ok(parse_regex!(s, r"^([A-Z][a-zA-Z0-9]*)$").to_owned().into())
+		Ok(constant.into())
 	}
 }
 
-impl FromStr for Structure {
-	type Err = Err;
+impl Parsable for Variable {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let var = parser.match_uppercase_identifier()?.to_owned();
 
-	fn from_str(s: &str) -> Result<Self> {
-		let [name, terms] = parse_regex!(s, r"^([\p{XID_Start}_#][\p{XID_Continue}#]*)\((.*)\)$", 2);
-
-		Ok(Self {
-			name: name.to_owned().into(),
-			arguments: terms.parse()?,
-		})
+		Ok(var.into())
 	}
 }
+
+impl_fromstr_from_parsable!(Clauses);
+impl_fromstr_from_parsable!(Clause);
+impl_fromstr_from_parsable!(Fact);
+impl_fromstr_from_parsable!(Rule);
+impl_fromstr_from_parsable!(Atoms);
+impl_fromstr_from_parsable!(Atom);
+impl_fromstr_from_parsable!(Term);
+impl_fromstr_from_parsable!(Terms);
+impl_fromstr_from_parsable!(Structure);
+impl_fromstr_from_parsable!(Constant);
+impl_fromstr_from_parsable!(Variable);
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+pub trait Parsable
+where
+	Self: Sized,
+{
+	fn parser_match(parser: &mut Parser) -> Result<Self>;
+}
+
+pub struct Parser<'source> {
+	source: &'source str,
+}
+
+impl<'source> Parser<'source> {
+	pub fn new(source: &'source str) -> Self {
+		Self { source }
+	}
+
+	pub fn parse<T: Parsable>(source: &'source str) -> Result<T> {
+		let mut parser = Self::new(source);
+		let result = parser.match_type()?;
+		parser.match_end()?;
+
+		Ok(result)
+	}
+
+	pub fn trim(&mut self) {
+		self.source = self.source.trim_start()
+	}
+
+	pub fn match_end(&mut self) -> Result<()> {
+		self.trim();
+
+		if !self.source.is_empty() {
+			bail!("End not matched, found '{}'", self.source)
+		}
+
+		Ok(())
+	}
+
+	pub fn match_token(&mut self, token: &str) -> Result<()> {
+		self.trim();
+
+		if !self.source.starts_with(token) {
+			bail!("Token '{}' not matched, found '{}'", token, self.source)
+		}
+
+		self.source = &self.source[token.len()..];
+
+		Ok(())
+	}
+
+	pub fn match_regex(&mut self, regex: &str) -> Result<&str> {
+		self.trim();
+
+		let re_match = static_regex!(&format!("^{}", regex))
+			.find_at(&self.source, 0)
+			.context(format!(
+				"Regex pattern '{}' not matched, found '{}'",
+				regex, self.source
+			))?;
+
+		self.source = &self.source[re_match.end()..];
+
+		Ok(re_match.as_str())
+	}
+
+	pub fn match_regex_captures<const N: usize>(&mut self, regex: &str) -> Result<[&str; N]> {
+		self.trim();
+
+		let (full_match, captures) = static_regex!(&format!("^{}", regex))
+			.captures(&self.source)
+			.context(format!(
+				"Regex pattern '{}' not matched, found '{}'",
+				regex, self.source
+			))?
+			.extract::<{ N }>();
+
+		self.source = &self.source[full_match.len()..];
+
+		Ok(captures)
+	}
+
+	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
+		self.trim();
+
+		<T as Parsable>::parser_match(self)
+	}
+
+	pub fn match_sequence<T: Parsable>(
+		&mut self,
+		separator: &str,
+		minimum: Option<usize>,
+		// until: impl Fn(&mut Self) -> Result<()>,
+	) -> Result<Vec<T>> {
+		let backup_source = self.source;
+
+		let result = self.match_sequence_unchecked(separator, minimum);
+
+		// If an error occurs while matching the sequence, rollback the source string
+		if result.is_err() {
+			self.source = backup_source;
+		}
+
+		result
+	}
+
+	fn match_sequence_unchecked<T: Parsable>(&mut self, separator: &str, minimum: Option<usize>) -> Result<Vec<T>> {
+		let mut result = Vec::new();
+
+		loop {
+			self.trim();
+
+			let inner = self.match_type::<T>();
+			if let Result::Ok(inner) = inner {
+				result.push(inner);
+			} else {
+				break;
+			}
+
+			// Optionally match the separator
+			let _ = self.match_token(separator);
+		}
+
+		if let Some(min) = minimum {
+			ensure!(
+				result.len() >= min,
+				"Matched only {} element(s) in the sequence, expected at least {}",
+				result.len(),
+				min
+			);
+		}
+
+		Ok(result)
+	}
+
+	pub fn match_identifier(&mut self) -> Result<&str> {
+		self.match_regex(r"[\p{XID_Start}_][\p{XID_Continue}#]*")
+	}
+
+	pub fn match_lowercase_identifier(&mut self) -> Result<&str> {
+		self.match_regex(r"[a-z][a-zA-Z0-9]*")
+	}
+
+	pub fn match_uppercase_identifier(&mut self) -> Result<&str> {
+		self.match_regex(r"[A-Z][a-zA-Z0-9]*")
+	}
+
+	pub fn match_integer(&mut self) -> Result<&str> {
+		self.match_regex(r"[1-9][0-9]*|0")
+	}
+
+	pub fn match_signed_integer(&mut self) -> Result<&str> {
+		self.match_regex(r"[+-]?[1-9][0-9]*|0")
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+// impl FromStr for Clauses {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		parse_sequence!(s, "\n", parse: Clause, collect: Vec<_>).map(Into::into)
+// 	}
+// }
+
+// impl FromStr for Clause {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		try_each_and_map! {(Into::into);
+// 			s.parse::<Fact>(),
+// 			s.parse::<Rule>()
+// 		}
+// 	}
+// }
+
+// impl FromStr for Fact {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		let atom = parse_regex!(s, r"^([^.:-]*?)\.$").parse::<Atom>()?;
+
+// 		Ok(Fact(atom))
+// 	}
+// }
+
+// impl FromStr for Rule {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		let [head, body] = parse_regex!(s, r"^([^.:-]*?):-([^.:-]*?)\.$", 2);
+
+// 		Ok(Rule {
+// 			head: head.parse()?,
+// 			body: body.parse()?,
+// 		})
+// 	}
+// }
+
+// impl FromStr for Atoms {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		parse_sequence!(s, ",", parse: Atom, collect: Vec<_>).map(Into::into)
+// 	}
+// }
+
+// impl FromStr for Atom {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
+
+// 		Ok(Atom {
+// 			name: name.to_owned().into(),
+// 			terms: terms.parse()?,
+// 		})
+// 	}
+// }
+
+// impl FromStr for Terms {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		parse_sequence!(s, ",", parse: Term, collect: Vec<_>).map(Into::into)
+// 	}
+// }
+
+// impl FromStr for Term {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		try_each_and_map! {(Into::into);
+// 			s.parse::<Constant>(),
+// 			s.parse::<Variable>(),
+// 			s.parse::<Structure>()
+// 		}
+// 		// let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
+
+// 		// Ok(Atom {
+// 		// 	name: name.into(),
+// 		// 	terms: terms.parse()?,
+// 		// })
+// 	}
+// }
+
+// impl FromStr for Constant {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		Ok(parse_regex!(s, r"^([a-z0-9][a-zA-Z0-9]*)$").to_owned().into())
+// 	}
+// }
+
+// impl FromStr for Variable {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		Ok(parse_regex!(s, r"^([A-Z][a-zA-Z0-9]*)$").to_owned().into())
+// 	}
+// }
+
+// impl FromStr for Structure {
+// 	type Err = Err;
+
+// 	fn from_str(s: &str) -> Result<Self> {
+// 		let [name, terms] = parse_regex!(s, r"^([\p{XID_Start}_#][\p{XID_Continue}#]*)\((.*)\)$", 2);
+
+// 		Ok(Self {
+// 			name: name.to_owned().into(),
+// 			arguments: terms.parse()?,
+// 		})
+// 	}
+// }
 
 /*
 --------------------------------------------------------------------------------
