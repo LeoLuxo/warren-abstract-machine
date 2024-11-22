@@ -31,7 +31,7 @@ impl Clauses {
 }
 
 /// Represents a Prolog clause, which is either a fact or a rule.
-#[derive(Clone, Debug, PartialEq, Eq, IsVariant, TryUnwrap)]
+#[derive(Clone, Debug, PartialEq, Eq, IsVariant, TryUnwrap, From)]
 pub enum Clause {
 	Fact(Fact),
 	Rule(Rule),

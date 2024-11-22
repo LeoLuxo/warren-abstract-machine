@@ -31,6 +31,15 @@ impl<T: Ord> Sorted for Vec<T> {
 */
 
 #[macro_export]
+macro_rules! static_regex {
+	($regex:expr) => {{
+		// This would be even shorter using LazyLock, but the feature is still unstable
+		const RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+		RE.get_or_init(|| Regex::new($regex).unwrap())
+	}};
+}
+
+#[macro_export]
 macro_rules! indent {
 	($str:expr) => {
 		indent!($str, 2)
@@ -99,5 +108,3 @@ macro_rules! display_map {
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
-
-
