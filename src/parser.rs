@@ -16,20 +16,34 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
+macro_rules! parse_regex {
+	($in:expr, $regex:expr) => {{
+		parse_regex!($in, $regex, 1)[0]
+	}};
+
+	($in:expr, $regex:expr, $cap:expr) => {{
+		let re = Regex::new($regex).unwrap();
+
+		re.captures($in)
+			.context(format!("Regex parsing error in '{}'", $in))?
+			.extract::<$cap>()
+			.1
+	}};
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+type Err = anyhow::Error;
+
 impl FromStr for VarRegister {
-	type Err = anyhow::Error;
+	type Err = Err;
 
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let re = Regex::new(r"^(X|A)(\d+)$").unwrap();
-
-		let (_, [_, reg]) = re
-			.captures(s)
-			.context(format!(
-				"Cannot parse {} as a VarRegister, it does not match the required format",
-				s
-			))?
-			.extract::<2>();
-
+	fn from_str(s: &str) -> Result<Self> {
+		let reg = parse_regex!(s, r"^(?:X|A)(\d+)$");
 		let reg = reg.parse::<usize>()?.into();
 
 		Ok(reg)
@@ -37,18 +51,10 @@ impl FromStr for VarRegister {
 }
 
 impl FromStr for Functor {
-	type Err = anyhow::Error;
+	type Err = Err;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let re = Regex::new(r"^(\w+?)/(\d+?)$").unwrap();
-
-		let (_, [name, arity]) = re
-			.captures(s)
-			.context(format!(
-				"Cannot parse {} as a Functor, it does not match the required format",
-				s
-			))?
-			.extract::<2>();
+		let [name, arity] = parse_regex!(s, r"^(\w+?)/(\d+?)$", 2);
 
 		Ok(Self {
 			name: name.to_owned().into(),
@@ -58,7 +64,7 @@ impl FromStr for Functor {
 }
 
 impl FromStr for Substitution {
-	type Err = anyhow::Error;
+	type Err = Err;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		// let outer_re = Regex::new(r"^{\s*(.*?)\s*}$").unwrap();
@@ -69,9 +75,8 @@ impl FromStr for Substitution {
 }
 
 impl FromStr for Fact {
-	type Err = anyhow::Error;
-
-	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+	type Err = Err;
+	fn from_str(s: &str) -> Result<Self> {
 		Parser::new(s)
 			.parse_clause()?
 			.try_unwrap_fact()
@@ -80,7 +85,7 @@ impl FromStr for Fact {
 }
 
 impl FromStr for Term {
-	type Err = anyhow::Error;
+	type Err = Err;
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		Parser::new(s).parse_term()
@@ -88,7 +93,7 @@ impl FromStr for Term {
 }
 
 impl FromStr for Clause {
-	type Err = anyhow::Error;
+	type Err = Err;
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		Parser::new(s).parse_clause()
@@ -96,7 +101,7 @@ impl FromStr for Clause {
 }
 
 impl FromStr for Clauses {
-	type Err = anyhow::Error;
+	type Err = Err;
 
 	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
 		Parser::new(s).parse_clauses(None)
