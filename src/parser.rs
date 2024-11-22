@@ -36,15 +36,6 @@ pub struct Parser<'source> {
 	checkpoints: Vec<&'source str>,
 }
 
-macro_rules! either {
-	{parser: $parser:expr, $($options:expr);* $(;)?} => {{
-		$parser.push_checkpoint();
-		let result = Err(anyhow::anyhow!("None of the either!() options worked"))$(.or_else(|_| {$parser.rewind_checkpoint(); println!("next try!"); $options}))*;
-		$parser.pop_checkpoint();
-		result
-	}};
-}
-
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -53,10 +44,7 @@ macro_rules! either {
 
 impl Parsable for VarRegister {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {parser:parser,
-			parser.match_token("X");
-			parser.match_token("A");
-		}?;
+		parser.multiple_choice().or_token("X").or_token("A").end()?;
 
 		let reg = parser.match_integer()?.parse::<usize>()?;
 
@@ -96,12 +84,13 @@ impl Parsable for Substitution {
 
 impl Parsable for SubstTerm {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {parser: parser,
-			parser.match_type::<Structure<SubstTerm>>().map(Into::into);
-			parser.match_type::<AnonymousIdentifier>().map(Into::into);
-			parser.match_type::<Variable>().map(Into::into);
-			parser.match_type::<Constant>().map(Into::into);
-		}
+		parser
+			.multiple_choice()
+			.or_type::<Structure<SubstTerm>>()
+			.or_type::<AnonymousIdentifier>()
+			.or_type::<Variable>()
+			.or_type::<Constant>()
+			.end()
 	}
 }
 
@@ -128,10 +117,7 @@ impl Parsable for Clauses {
 
 impl Parsable for Clause {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {parser: parser,
-			parser.match_type::<Fact>().map(Into::into);
-			parser.match_type::<Rule>().map(Into::into);
-		}
+		parser.multiple_choice().or_type::<Fact>().or_type::<Rule>().end()
 	}
 }
 
@@ -180,11 +166,12 @@ impl Parsable for Terms {
 
 impl Parsable for Term {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {parser: parser,
-			parser.match_type::<Structure>().map(Into::into);
-			parser.match_type::<Variable>().map(Into::into);
-			parser.match_type::<Constant>().map(Into::into);
-		}
+		parser
+			.multiple_choice()
+			.or_type::<Structure>()
+			.or_type::<Variable>()
+			.or_type::<Constant>()
+			.end()
 	}
 }
 
@@ -201,10 +188,11 @@ impl<T: Parsable> Parsable for Structure<T> {
 
 impl Parsable for Constant {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		let constant = either! {parser: parser,
-			parser.match_signed_integer().map(ToOwned::to_owned);
-			parser.match_lowercase_identifier().map(ToOwned::to_owned);
-		}?;
+		let constant = parser
+			.multiple_choice()
+			.or_signed_integer()
+			.or_lowercase_identifier()
+			.end()?;
 
 		Ok(Self(constant.into()))
 	}
@@ -240,18 +228,18 @@ impl<'source> Parser<'source> {
 		Ok(result)
 	}
 
-	pub fn push_checkpoint(&mut self) {
+	fn push_checkpoint(&mut self) {
 		self.checkpoints.push(self.source);
 	}
 
-	pub fn rewind_checkpoint(&mut self) {
+	fn rewind_checkpoint(&mut self) {
 		self.source = self
 			.checkpoints
 			.last()
 			.expect("Tried to rewind to checkpoint, but no checkpoint available")
 	}
 
-	pub fn pop_checkpoint(&mut self) {
+	fn pop_checkpoint(&mut self) {
 		self.checkpoints.pop();
 	}
 
@@ -331,12 +319,7 @@ impl<'source> Parser<'source> {
 		<T as Parsable>::parser_match(self)
 	}
 
-	pub fn match_sequence_by_type<T: Parsable>(
-		&mut self,
-		separator: &str,
-		minimum: Option<usize>,
-		// until: impl Fn(&mut Self) -> Result<()>,
-	) -> Result<Vec<T>> {
+	pub fn match_sequence_by_type<T: Parsable>(&mut self, separator: &str, minimum: Option<usize>) -> Result<Vec<T>> {
 		println!("match_sequence | source:{}", self.source);
 		self.match_sequence_with(separator, minimum, |p| p.match_type::<T>())
 	}
@@ -417,6 +400,91 @@ impl<'source> Parser<'source> {
 	pub fn match_signed_integer(&mut self) -> Result<&str> {
 		println!("match_signed_integer | source:{}", self.source);
 		self.match_regex(r"[+-]?[1-9][0-9]*|0")
+	}
+
+	pub fn multiple_choice<'parser, T>(&'parser mut self) -> ParserMultipleChoice<'source, 'parser, T> {
+		ParserMultipleChoice::new(self)
+	}
+}
+
+pub struct ParserMultipleChoice<'source, 'parser, T> {
+	parser: &'parser mut Parser<'source>,
+	result: Result<T>,
+}
+
+impl<'source, 'parser, T> ParserMultipleChoice<'source, 'parser, T> {
+	fn new(parser: &'parser mut Parser<'source>) -> Self {
+		parser.push_checkpoint();
+		Self {
+			parser,
+			result: Err(anyhow::anyhow!("None of the either-or options succeeded")),
+		}
+	}
+
+	#[inline]
+	pub fn or_with(mut self, func: impl Fn(&mut Parser) -> Result<T>) -> Self {
+		if self.result.is_err() {
+			self.parser.rewind_checkpoint();
+			self.result = func(self.parser);
+		}
+		self
+	}
+
+	#[inline]
+	pub fn end(self) -> Result<T> {
+		self.parser.pop_checkpoint();
+		self.result
+	}
+}
+
+impl ParserMultipleChoice<'_, '_, ()> {
+	#[inline]
+	pub fn or_end(self) -> Self {
+		self.or_with(|p| p.match_end())
+	}
+
+	#[inline]
+	pub fn or_token(self, token: &str) -> Self {
+		self.or_with(|p| p.match_token(token))
+	}
+}
+
+impl<T: Parsable> ParserMultipleChoice<'_, '_, T> {
+	#[inline]
+	pub fn or_type<U: Into<T>>(self) -> Self {
+		self.or_with(|p| p.match_type::<T>().map(Into::into))
+	}
+}
+
+impl ParserMultipleChoice<'_, '_, String> {
+	#[inline]
+	pub fn or_regex(self, regex: &str) -> Self {
+		self.or_with(|p| p.match_regex(regex).map(ToOwned::to_owned))
+	}
+
+	#[inline]
+	pub fn or_identifier(self) -> Self {
+		self.or_with(|p| p.match_identifier().map(ToOwned::to_owned))
+	}
+
+	#[inline]
+	pub fn or_lowercase_identifier(self) -> Self {
+		self.or_with(|p| p.match_lowercase_identifier().map(ToOwned::to_owned))
+	}
+
+	#[inline]
+	pub fn or_uppercase_identifier(self) -> Self {
+		self.or_with(|p| p.match_uppercase_identifier().map(ToOwned::to_owned))
+	}
+
+	#[inline]
+	pub fn or_integer(self) -> Self {
+		self.or_with(|p| p.match_integer().map(ToOwned::to_owned))
+	}
+
+	#[inline]
+	pub fn or_signed_integer(self) -> Self {
+		self.or_with(|p| p.match_signed_integer().map(ToOwned::to_owned))
 	}
 }
 
