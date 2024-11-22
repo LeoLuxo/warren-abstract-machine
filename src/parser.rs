@@ -451,8 +451,8 @@ impl ParserMultipleChoice<'_, '_, ()> {
 
 impl<T: Parsable> ParserMultipleChoice<'_, '_, T> {
 	#[inline]
-	pub fn or_type<U: Into<T>>(self) -> Self {
-		self.or_with(|p| p.match_type::<T>().map(Into::into))
+	pub fn or_type<U: Parsable + Into<T>>(self) -> Self {
+		self.or_with(|p| p.match_type::<U>().map(Into::into))
 	}
 }
 

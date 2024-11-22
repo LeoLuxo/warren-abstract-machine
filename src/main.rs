@@ -1,9 +1,7 @@
 use anyhow::Result;
 use warren_abstract_machine::{
-	ast::{Functor, Term},
-	l_zero::L0,
+	ast::{Term},
 	parser::ParseAs,
-	solve,
 };
 
 fn main() -> Result<()> {
