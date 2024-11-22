@@ -2,10 +2,12 @@ use std::str::FromStr;
 
 use anyhow::{bail, ensure, Context, Result};
 use logos::{Lexer, Logos};
+use regex::Regex;
 
 use crate::{
 	ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Functor, Rule, Structure, Term, Terms, Variable},
 	machine_types::VarRegister,
+	subst::Substitution,
 };
 
 /*
@@ -18,14 +20,17 @@ impl FromStr for VarRegister {
 	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let first_char = s.get(0..=0).context("VarRegister missing its letter")?;
-		ensure!(matches!(first_char, "X" | "A"), "Invalid letter for VarRegister");
+		let re = Regex::new(r"^(X|A)(\d+)$").unwrap();
 
-		let reg = s
-			.get(1..)
-			.context("VarRegister missing its register number")?
-			.parse::<usize>()?
-			.into();
+		let (_, [_, reg]) = re
+			.captures(s)
+			.context(format!(
+				"Cannot parse {} as a VarRegister, it does not match the required format",
+				s
+			))?
+			.extract::<2>();
+
+		let reg = reg.parse::<usize>()?.into();
 
 		Ok(reg)
 	}
@@ -35,16 +40,31 @@ impl FromStr for Functor {
 	type Err = anyhow::Error;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut split = s.split('/');
-		let name = split.next().context("functor missing name")?.to_owned();
-		let arity = split.next().context("functor missing arity")?.parse()?;
+		let re = Regex::new(r"^(\w+?)/(\d+?)$").unwrap();
 
-		ensure!(!name.is_empty(), "functor name must be at least 1 character");
+		let (_, [name, arity]) = re
+			.captures(s)
+			.context(format!(
+				"Cannot parse {} as a Functor, it does not match the required format",
+				s
+			))?
+			.extract::<2>();
 
 		Ok(Self {
-			name: name.into(),
-			arity,
+			name: name.to_owned().into(),
+			arity: arity.parse()?,
 		})
+	}
+}
+
+impl FromStr for Substitution {
+	type Err = anyhow::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		// let outer_re = Regex::new(r"^{\s*(.*?)\s*}$").unwrap();
+		// let outer_re = Regex::new(r"^{\s*(.*?)\s*}$").unwrap();
+
+		todo!()
 	}
 }
 
