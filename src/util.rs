@@ -40,6 +40,13 @@ macro_rules! static_regex {
 }
 
 #[macro_export]
+macro_rules! regex_force_beginning {
+	($regex:expr) => {{
+		&format!(r"\A(?:{})", $regex)
+	}};
+}
+
+#[macro_export]
 macro_rules! indent {
 	($str:expr) => {
 		indent!($str, 2)
