@@ -184,6 +184,12 @@ pub trait StaticMapping {
 #[display("{{ {} }}", display_map!(_0))]
 pub struct Substitution(HashMap<ScopedVariable, SubstTerm>);
 
+impl FromIterator<(ScopedVariable, SubstTerm)> for Substitution {
+	fn from_iter<T: IntoIterator<Item = (ScopedVariable, SubstTerm)>>(iter: T) -> Self {
+		Self(HashMap::from_iter(iter))
+	}
+}
+
 #[derive(Clone, Debug, Eq, Display, From)]
 #[from(forward)]
 pub enum SubstTerm {

@@ -1,12 +1,13 @@
-use std::{fmt, str::FromStr};
+use std::{fmt};
 
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
-	ast::{Clauses, Fact, Functor, Identifier},
+	ast::{Fact, Functor, Identifier},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
+	parser::{Parsable},
 	subst::StaticMapping,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
@@ -144,14 +145,10 @@ impl Facts {
 	}
 }
 
-impl FromStr for Facts {
-	type Err = anyhow::Error;
+impl Parsable for Facts {
+	fn parser_match(parser: &mut crate::parser::Parser) -> Result<Self> {
+		let facts = parser.match_sequence_by_type::<Fact>("\n", None)?;
 
-	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-		Ok(s.parse::<Clauses>()?
-			.into_iter()
-			.map(|c| c.try_unwrap_fact().context("Expected fact but parsed rule instead"))
-			.collect::<Result<Vec<_>>>()?
-			.into())
+		Ok(Self(facts))
 	}
 }

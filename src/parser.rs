@@ -1,5 +1,3 @@
-use std::{fmt::Debug, str::FromStr};
-
 use anyhow::{bail, ensure, Context, Ok, Result};
 use regex::Regex;
 
@@ -7,7 +5,7 @@ use crate::{
 	ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Functor, Rule, Structure, Term, Terms, Variable},
 	machine_types::VarRegister,
 	regex_force_beginning, static_regex,
-	subst::Substitution,
+	subst::{AnonymousIdentifier, SubstTerm, Substitution},
 };
 
 /*
@@ -16,18 +14,26 @@ use crate::{
 --------------------------------------------------------------------------------
 */
 
-macro_rules! parse_regex {
-	($in:expr, $regex:expr) => {{
-		parse_regex!($in, $regex, 1)[0]
-	}};
+pub trait ParseAs {
+	fn parse_as<T: Parsable>(&self) -> Result<T>;
+}
 
-	($in:expr, $regex:expr, $cap:expr) => {{
-		static_regex!($regex)
-			.captures(dbg!($in.trim()))
-			.context(format!("Regex parsing error in '{}'", $in))?
-			.extract::<$cap>()
-			.1
-	}};
+impl ParseAs for str {
+	fn parse_as<T: Parsable>(&self) -> Result<T> {
+		Parser::parse(self)
+	}
+}
+
+pub trait Parsable
+where
+	Self: Sized,
+{
+	fn parser_match(parser: &mut Parser) -> Result<Self>;
+}
+
+pub struct Parser<'source> {
+	source: &'source str,
+	checkpoints: Vec<&'source str>,
 }
 
 macro_rules! either {
@@ -37,18 +43,6 @@ macro_rules! either {
 		$parser.pop_checkpoint();
 		result
 	}};
-}
-
-macro_rules! impl_fromstr_from_parsable {
-	($type:ty) => {
-		impl FromStr for $type {
-			type Err = anyhow::Error;
-
-			fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-				Parser::parse(s)
-			}
-		}
-	};
 }
 
 /*
@@ -80,18 +74,43 @@ impl Parsable for Functor {
 	}
 }
 
-impl_fromstr_from_parsable!(VarRegister);
-impl_fromstr_from_parsable!(Functor);
-// impl_fromstr_from_parsable!(Substitution);
+impl Parsable for Substitution {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_token("{")?;
 
-impl FromStr for Substitution {
-	type Err = anyhow::Error;
+		let elems = parser.match_sequence_with(",", None, |p| {
+			let var = p.match_type::<Variable>()?.into();
 
-	fn from_str(s: &str) -> Result<Self> {
-		// let outer_re = Regex::new(r"{\s*(.*?)\s*}").unwrap();
-		// let outer_re = Regex::new(r"{\s*(.*?)\s*}").unwrap();
+			p.match_token("->")?;
 
-		todo!()
+			let subst_term = p.match_type::<SubstTerm>()?;
+
+			Ok((var, subst_term))
+		})?;
+
+		parser.match_token("}")?;
+
+		Ok(elems.into_iter().collect())
+	}
+}
+
+impl Parsable for SubstTerm {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		either! {parser: parser,
+			parser.match_type::<Structure<SubstTerm>>().map(Into::into);
+			parser.match_type::<AnonymousIdentifier>().map(Into::into);
+			parser.match_type::<Variable>().map(Into::into);
+			parser.match_type::<Constant>().map(Into::into);
+		}
+	}
+}
+
+impl Parsable for AnonymousIdentifier {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_token("?")?;
+		let id = parser.match_integer()?.parse::<u32>()?;
+
+		Ok(id.into())
 	}
 }
 
@@ -103,7 +122,7 @@ impl FromStr for Substitution {
 
 impl Parsable for Clauses {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence::<Clause>("\n", None).map(Into::into)
+		parser.match_sequence_by_type::<Clause>("\n", None).map(Into::into)
 	}
 }
 
@@ -129,7 +148,7 @@ impl Parsable for Rule {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let head = parser.match_type::<Atom>()?;
 		parser.match_token(":-")?;
-		let body = parser.match_sequence::<Atom>(",", Some(1))?.into();
+		let body = parser.match_sequence_by_type::<Atom>(",", Some(1))?.into();
 		parser.match_token(".")?;
 
 		Ok(Self { head, body })
@@ -138,7 +157,7 @@ impl Parsable for Rule {
 
 impl Parsable for Atoms {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence::<Atom>(",", None).map(Into::into)
+		parser.match_sequence_by_type::<Atom>(",", None).map(Into::into)
 	}
 }
 
@@ -146,7 +165,7 @@ impl Parsable for Atom {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let name = parser.match_identifier()?.to_owned().into();
 		parser.match_token("(")?;
-		let terms = parser.match_sequence::<Term>(",", Some(1))?.into();
+		let terms = parser.match_sequence_by_type::<Term>(",", Some(1))?.into();
 		parser.match_token(")")?;
 
 		Ok(Self { name, terms })
@@ -155,7 +174,7 @@ impl Parsable for Atom {
 
 impl Parsable for Terms {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence::<Term>(",", None).map(Into::into)
+		parser.match_sequence_by_type::<Term>(",", None).map(Into::into)
 	}
 }
 
@@ -169,11 +188,11 @@ impl Parsable for Term {
 	}
 }
 
-impl Parsable for Structure {
+impl<T: Parsable> Parsable for Structure<T> {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let name = parser.match_identifier()?.to_owned().into();
 		parser.match_token("(")?;
-		let arguments = parser.match_sequence::<Term>(",", Some(1))?.into();
+		let arguments = parser.match_sequence_by_type::<T>(",", Some(1))?.into();
 		parser.match_token(")")?;
 
 		Ok(Self { name, arguments })
@@ -199,35 +218,11 @@ impl Parsable for Variable {
 	}
 }
 
-impl_fromstr_from_parsable!(Clauses);
-impl_fromstr_from_parsable!(Clause);
-impl_fromstr_from_parsable!(Fact);
-impl_fromstr_from_parsable!(Rule);
-impl_fromstr_from_parsable!(Atoms);
-impl_fromstr_from_parsable!(Atom);
-impl_fromstr_from_parsable!(Term);
-impl_fromstr_from_parsable!(Terms);
-impl_fromstr_from_parsable!(Structure);
-impl_fromstr_from_parsable!(Constant);
-impl_fromstr_from_parsable!(Variable);
-
 /*
 --------------------------------------------------------------------------------
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
-
-pub trait Parsable
-where
-	Self: Sized,
-{
-	fn parser_match(parser: &mut Parser) -> Result<Self>;
-}
-
-pub struct Parser<'source> {
-	source: &'source str,
-	checkpoints: Vec<&'source str>,
-}
 
 impl<'source> Parser<'source> {
 	pub fn new(source: &'source str) -> Self {
@@ -237,7 +232,7 @@ impl<'source> Parser<'source> {
 		}
 	}
 
-	pub fn parse<T: Parsable + Debug>(source: &'source str) -> Result<T> {
+	pub fn parse<T: Parsable>(source: &'source str) -> Result<T> {
 		let mut parser = Self::new(source);
 		let result = parser.match_type()?;
 		parser.match_end()?;
@@ -329,41 +324,54 @@ impl<'source> Parser<'source> {
 		dbg!(Ok(captures))
 	}
 
-	pub fn match_type<T: Parsable + Debug>(&mut self) -> Result<T> {
+	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
 		println!("match_type | source:{}", self.source);
 		self.trim_whitespace();
 
-		dbg!(<T as Parsable>::parser_match(self))
+		<T as Parsable>::parser_match(self)
 	}
 
-	pub fn match_sequence<T: Parsable + Debug>(
+	pub fn match_sequence_by_type<T: Parsable>(
 		&mut self,
 		separator: &str,
 		minimum: Option<usize>,
 		// until: impl Fn(&mut Self) -> Result<()>,
 	) -> Result<Vec<T>> {
 		println!("match_sequence | source:{}", self.source);
-		let backup_source = self.source;
-
-		let result = self.match_sequence_unchecked(separator, minimum);
-
-		// If an error occurs while matching the sequence, rollback the source string
-		if result.is_err() {
-			self.source = backup_source;
-		}
-
-		dbg!(result)
+		self.match_sequence_with(separator, minimum, |p| p.match_type::<T>())
 	}
 
-	fn match_sequence_unchecked<T: Parsable + Debug>(
+	pub fn match_sequence_with<T>(
 		&mut self,
 		separator: &str,
 		minimum: Option<usize>,
+		inner_fn: impl Fn(&mut Self) -> Result<T>,
+	) -> Result<Vec<T>> {
+		println!("match_sequence | source:{}", self.source);
+
+		self.push_checkpoint();
+
+		let result = self.match_sequence_with_unchecked(separator, minimum, inner_fn);
+
+		// If an error occurs while matching the sequence, rollback the source string
+		if result.is_err() {
+			self.rewind_checkpoint();
+		}
+
+		self.pop_checkpoint();
+		result
+	}
+
+	fn match_sequence_with_unchecked<T>(
+		&mut self,
+		separator: &str,
+		minimum: Option<usize>,
+		inner_fn: impl Fn(&mut Self) -> Result<T>,
 	) -> Result<Vec<T>> {
 		let mut result = Vec::new();
 
 		loop {
-			let inner = self.match_type::<T>();
+			let inner = inner_fn(self);
 			if let Result::Ok(inner) = inner {
 				result.push(inner);
 			} else {
@@ -425,7 +433,7 @@ mod tests {
 	#[test]
 	fn test_parse_functor() -> Result<()> {
 		assert_eq!(
-			"a/0".parse::<Functor>()?,
+			"a/0".parse_as::<Functor>()?,
 			Functor {
 				name: "a".into(),
 				arity: 0
@@ -433,7 +441,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"f/1".parse::<Functor>()?,
+			"f/1".parse_as::<Functor>()?,
 			Functor {
 				name: "f".into(),
 				arity: 1
@@ -441,52 +449,57 @@ mod tests {
 		);
 
 		assert_eq!(
-			"loooooooooooooooooong/123456".parse::<Functor>()?,
+			"loooooooooooooooooong/123456".parse_as::<Functor>()?,
 			Functor {
 				name: "loooooooooooooooooong".into(),
 				arity: 123456
 			}
 		);
 
-		assert!("".parse::<Functor>().is_err());
-		assert!("/".parse::<Functor>().is_err());
-		assert!("f/".parse::<Functor>().is_err());
-		assert!("/0".parse::<Functor>().is_err());
-		assert!("//".parse::<Functor>().is_err());
-		assert!("f//".parse::<Functor>().is_err());
-		assert!("/a/".parse::<Functor>().is_err());
-		assert!("//0".parse::<Functor>().is_err());
-		assert!("f/a/0".parse::<Functor>().is_err());
+		assert!("".parse_as::<Functor>().is_err());
+		assert!("/".parse_as::<Functor>().is_err());
+		assert!("f/".parse_as::<Functor>().is_err());
+		assert!("/0".parse_as::<Functor>().is_err());
+		assert!("//".parse_as::<Functor>().is_err());
+		assert!("f//".parse_as::<Functor>().is_err());
+		assert!("/a/".parse_as::<Functor>().is_err());
+		assert!("//0".parse_as::<Functor>().is_err());
+		assert!("f/a/0".parse_as::<Functor>().is_err());
 
 		Ok(())
 	}
 
 	#[test]
 	fn test_parse_var_register() -> Result<()> {
-		assert_eq!(*"X0".parse::<VarRegister>()?, 0);
-		assert_eq!(*"X12345".parse::<VarRegister>()?, 12345);
-		assert_eq!(*"A0".parse::<VarRegister>()?, 0);
-		assert_eq!(*"A12345".parse::<VarRegister>()?, 12345);
+		assert_eq!(*"X0".parse_as::<VarRegister>()?, 0);
+		assert_eq!(*"X12345".parse_as::<VarRegister>()?, 12345);
+		assert_eq!(*"A0".parse_as::<VarRegister>()?, 0);
+		assert_eq!(*"A12345".parse_as::<VarRegister>()?, 12345);
 
-		assert!("".parse::<VarRegister>().is_err());
-		assert!("X".parse::<VarRegister>().is_err());
-		assert!("A".parse::<VarRegister>().is_err());
-		assert!("0".parse::<VarRegister>().is_err());
-		assert!("1232345".parse::<VarRegister>().is_err());
-		assert!("E1".parse::<VarRegister>().is_err());
-		assert!("AX1".parse::<VarRegister>().is_err());
+		assert!("".parse_as::<VarRegister>().is_err());
+		assert!("X".parse_as::<VarRegister>().is_err());
+		assert!("A".parse_as::<VarRegister>().is_err());
+		assert!("0".parse_as::<VarRegister>().is_err());
+		assert!("1232345".parse_as::<VarRegister>().is_err());
+		assert!("E1".parse_as::<VarRegister>().is_err());
+		assert!("AX1".parse_as::<VarRegister>().is_err());
 
 		Ok(())
 	}
 
 	#[test]
-	fn test_parse_term_success() -> Result<()> {
-		assert_eq!("const".parse::<Term>()?, Term::Constant(Constant("const".into())));
+	fn test_parse_substitution() -> Result<()> {
+		Ok(())
+	}
 
-		assert_eq!("Var".parse::<Term>()?, Term::Variable(Variable("Var".into())));
+	#[test]
+	fn test_parse_term_success() -> Result<()> {
+		assert_eq!("const".parse_as::<Term>()?, Term::Constant(Constant("const".into())));
+
+		assert_eq!("Var".parse_as::<Term>()?, Term::Variable(Variable("Var".into())));
 
 		assert_eq!(
-			"func(1)".parse::<Term>()?,
+			"func(1)".parse_as::<Term>()?,
 			Term::Structure(Structure {
 				name: "func".into(),
 				arguments: vec![Term::Constant(Constant("1".into()))].into()
@@ -494,7 +507,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"FUNC123(ASD)".parse::<Term>()?,
+			"FUNC123(ASD)".parse_as::<Term>()?,
 			Term::Structure(Structure {
 				name: "FUNC123".into(),
 				arguments: vec![Term::Variable(Variable("ASD".into()))].into()
@@ -502,7 +515,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"long(  1 ,x, 			X		,y)".parse::<Term>()?,
+			"long(  1 ,x, 			X		,y)".parse_as::<Term>()?,
 			Term::Structure(Structure {
 				name: "long".into(),
 				arguments: vec![
@@ -516,7 +529,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"recursive(a(b(c(d))),x(y(Z)))".parse::<Term>()?,
+			"recursive(a(b(c(d))),x(y(Z)))".parse_as::<Term>()?,
 			Term::Structure(Structure {
 				name: "recursive".into(),
 				arguments: vec![
@@ -550,18 +563,18 @@ mod tests {
 
 	#[test]
 	fn test_parse_term_failure() {
-		assert!("()".parse::<Term>().is_err());
-		assert!("asd()".parse::<Term>().is_err());
-		assert!("Asd()".parse::<Term>().is_err());
-		assert!("(1)".parse::<Term>().is_err());
-		assert!("(1,)".parse::<Term>().is_err());
-		assert!("(1,3)".parse::<Term>().is_err());
+		assert!("()".parse_as::<Term>().is_err());
+		assert!("asd()".parse_as::<Term>().is_err());
+		assert!("Asd()".parse_as::<Term>().is_err());
+		assert!("(1)".parse_as::<Term>().is_err());
+		assert!("(1,)".parse_as::<Term>().is_err());
+		assert!("(1,3)".parse_as::<Term>().is_err());
 	}
 
 	#[test]
 	fn test_parse_clause_success() -> Result<()> {
 		assert_eq!(
-			"edge(1, X).".parse::<Clause>()?,
+			"edge(1, X).".parse_as::<Clause>()?,
 			Clause::Fact(Fact(Atom {
 				name: "edge".into(),
 				terms: vec![
@@ -573,7 +586,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"a(b, c(d), e(f(G))).".parse::<Clause>()?,
+			"a(b, c(d), e(f(G))).".parse_as::<Clause>()?,
 			Clause::Fact(Fact(Atom {
 				name: "a".into(),
 				terms: vec![
@@ -596,7 +609,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			"path(X, Z) :- edge(X, Y), edge(Y, Z).".parse::<Clause>()?,
+			"path(X, Z) :- edge(X, Y), edge(Y, Z).".parse_as::<Clause>()?,
 			Clause::Rule(Rule {
 				head: Atom {
 					name: "path".into(),
@@ -633,14 +646,14 @@ mod tests {
 
 	#[test]
 	fn test_parse_clause_failure() {
-		assert!("asd :- asd.".parse::<Clause>().is_err());
-		assert!(".".parse::<Clause>().is_err());
-		assert!("()".parse::<Clause>().is_err());
-		assert!("Path()".parse::<Clause>().is_err());
-		assert!("Path().".parse::<Clause>().is_err());
-		assert!("Path(1) :-".parse::<Clause>().is_err());
-		assert!("Path(1) :- .".parse::<Clause>().is_err());
-		assert!("Path(1) :- path().".parse::<Clause>().is_err());
-		assert!("Path(1) : path(1).".parse::<Clause>().is_err());
+		assert!("asd :- asd.".parse_as::<Clause>().is_err());
+		assert!(".".parse_as::<Clause>().is_err());
+		assert!("()".parse_as::<Clause>().is_err());
+		assert!("Path()".parse_as::<Clause>().is_err());
+		assert!("Path().".parse_as::<Clause>().is_err());
+		assert!("Path(1) :-".parse_as::<Clause>().is_err());
+		assert!("Path(1) :- .".parse_as::<Clause>().is_err());
+		assert!("Path(1) :- path().".parse_as::<Clause>().is_err());
+		assert!("Path(1) : path(1).".parse_as::<Clause>().is_err());
 	}
 }

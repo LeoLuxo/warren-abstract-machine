@@ -124,6 +124,8 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L0Instruction> {
 #[cfg(test)]
 mod tests {
 
+	use crate::parser::ParseAs;
+
 	use super::*;
 	use anyhow::Result;
 	use velcro::vec;
@@ -133,21 +135,21 @@ mod tests {
 		#[rustfmt::skip]
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)"
-				.parse::<NonVariableTerm>()?
+				.parse_as::<NonVariableTerm>()?
 				.compile_as_program()?.instructions,
 			vec![
-				L0Instruction::GetStructure("p/3".parse()?, "X1".parse()?),
-				L0Instruction::UnifyVariable("X2".parse()?),
-				L0Instruction::UnifyVariable("X3".parse()?),
-				L0Instruction::UnifyVariable("X4".parse()?),
-				L0Instruction::GetStructure("f/1".parse()?, "X2".parse()?),
-				L0Instruction::UnifyVariable("X5".parse()?),
-				L0Instruction::GetStructure("h/2".parse()?, "X3".parse()?),
-				L0Instruction::UnifyValue("X4".parse()?),
-				L0Instruction::UnifyVariable("X6".parse()?),
-				L0Instruction::GetStructure("f/1".parse()?, "X6".parse()?),
-				L0Instruction::UnifyVariable("X7".parse()?),
-				L0Instruction::GetStructure("a/0".parse()?, "X7".parse()?),
+				L0Instruction::GetStructure("p/3".parse_as()?, "X1".parse_as()?),
+				L0Instruction::UnifyVariable("X2".parse_as()?),
+				L0Instruction::UnifyVariable("X3".parse_as()?),
+				L0Instruction::UnifyVariable("X4".parse_as()?),
+				L0Instruction::GetStructure("f/1".parse_as()?, "X2".parse_as()?),
+				L0Instruction::UnifyVariable("X5".parse_as()?),
+				L0Instruction::GetStructure("h/2".parse_as()?, "X3".parse_as()?),
+				L0Instruction::UnifyValue("X4".parse_as()?),
+				L0Instruction::UnifyVariable("X6".parse_as()?),
+				L0Instruction::GetStructure("f/1".parse_as()?, "X6".parse_as()?),
+				L0Instruction::UnifyVariable("X7".parse_as()?),
+				L0Instruction::GetStructure("a/0".parse_as()?, "X7".parse_as()?),
 			]
 		);
 
@@ -159,18 +161,18 @@ mod tests {
 		#[rustfmt::skip]
 		assert_eq!(
 			"p(Z, h(Z,W), f(W))"
-				.parse::<NonVariableTerm>()?
+				.parse_as::<NonVariableTerm>()?
 				.compile_as_query()?.instructions,
 			vec![
-				L0Instruction::PutStructure("h/2".parse()?, "X3".parse()?),
-				L0Instruction::SetVariable("X2".parse()?),
-				L0Instruction::SetVariable("X5".parse()?),
-				L0Instruction::PutStructure("f/1".parse()?, "X4".parse()?),
-				L0Instruction::SetValue("X5".parse()?),
-				L0Instruction::PutStructure("p/3".parse()?, "X1".parse()?),
-				L0Instruction::SetValue("X2".parse()?),
-				L0Instruction::SetValue("X3".parse()?),
-				L0Instruction::SetValue("X4".parse()?),
+				L0Instruction::PutStructure("h/2".parse_as()?, "X3".parse_as()?),
+				L0Instruction::SetVariable("X2".parse_as()?),
+				L0Instruction::SetVariable("X5".parse_as()?),
+				L0Instruction::PutStructure("f/1".parse_as()?, "X4".parse_as()?),
+				L0Instruction::SetValue("X5".parse_as()?),
+				L0Instruction::PutStructure("p/3".parse_as()?, "X1".parse_as()?),
+				L0Instruction::SetValue("X2".parse_as()?),
+				L0Instruction::SetValue("X3".parse_as()?),
+				L0Instruction::SetValue("X4".parse_as()?),
 			]
 		);
 

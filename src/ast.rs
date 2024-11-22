@@ -240,24 +240,26 @@ impl GetFunctor for Constant {
 mod tests {
 	use anyhow::Result;
 
+	use crate::parser::ParseAs;
+
 	use super::*;
 
 	#[test]
 	fn test_display() -> Result<()> {
 		assert_eq!(
-			format!("{}", "path(X,Z):-edge(X,Y),edge(Y,Z).".parse::<Clause>()?),
+			format!("{}", "path(X,Z):-edge(X,Y),edge(Y,Z).".parse_as::<Clause>()?),
 			"path(X, Z) :- edge(X, Y), edge(Y, Z)."
 		);
 
-		assert_eq!(format!("{}", "edge(1,2).".parse::<Clause>()?), "edge(1, 2).");
+		assert_eq!(format!("{}", "edge(1,2).".parse_as::<Clause>()?), "edge(1, 2).");
 
 		assert_eq!(
-			format!("{}", "a(b(c),d(E)):-f(g(h(I,j,K),L),m,N).".parse::<Clause>()?),
+			format!("{}", "a(b(c),d(E)):-f(g(h(I,j,K),L),m,N).".parse_as::<Clause>()?),
 			"a(b(c), d(E)) :- f(g(h(I, j, K), L), m, N)."
 		);
 
 		assert_eq!(
-			format!("{}", "p(f(X), h(Y, f(a)), Y)".parse::<Term>()?),
+			format!("{}", "p(f(X), h(Y, f(a)), Y)".parse_as::<Term>()?),
 			"p(f(X), h(Y, f(a)), Y)"
 		);
 

@@ -148,6 +148,8 @@ fn compile_query_tokens(tokens: Vec<MappingToken>) -> Vec<L1Instruction> {
 #[cfg(test)]
 mod tests {
 
+	use crate::parser::ParseAs;
+
 	use super::*;
 	use anyhow::Result;
 
@@ -158,18 +160,18 @@ mod tests {
 		#[rustfmt::skip]
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)."
-				.parse::<Facts>()?
+				.parse_as::<Facts>()?
 				.compile_as_program()?.instructions,
 			vec![
-				L1Instruction::GetStructure("f/1".parse()?, "A1".parse()?),
-				L1Instruction::UnifyVariable("X4".parse()?),
-				L1Instruction::GetStructure("h/2".parse()?, "A2".parse()?),
-				L1Instruction::UnifyVariable("X5".parse()?),
-				L1Instruction::UnifyVariable("X6".parse()?),
-				L1Instruction::GetStructure("f/1".parse()?, "X6".parse()?),
-				L1Instruction::UnifyVariable("X7".parse()?),
-				L1Instruction::GetStructure("a/0".parse()?, "X7".parse()?),
-				L1Instruction::GetValue("X5".parse()?, "A3".parse()?),
+				L1Instruction::GetStructure("f/1".parse_as()?, "A1".parse_as()?),
+				L1Instruction::UnifyVariable("X4".parse_as()?),
+				L1Instruction::GetStructure("h/2".parse_as()?, "A2".parse_as()?),
+				L1Instruction::UnifyVariable("X5".parse_as()?),
+				L1Instruction::UnifyVariable("X6".parse_as()?),
+				L1Instruction::GetStructure("f/1".parse_as()?, "X6".parse_as()?),
+				L1Instruction::UnifyVariable("X7".parse_as()?),
+				L1Instruction::GetStructure("a/0".parse_as()?, "X7".parse_as()?),
+				L1Instruction::GetValue("X5".parse_as()?, "A3".parse_as()?),
 				L1Instruction::Proceed
 			]
 		);
@@ -185,12 +187,12 @@ mod tests {
 		// 		.parse::<Fact>()?
 		// 		.compile_as_query()?.instructions,
 		// 	vec![
-		// 		L1Instruction::PutStructure("h/2".parse()?, 3_usize.into() ),
+		// 		L1Instruction::PutStructure("h/2".parse_as()?, 3_usize.into() ),
 		// 		L1Instruction::SetVariable(2_usize.into()),
 		// 		L1Instruction::SetVariable(5_usize.into()),
-		// 		L1Instruction::PutStructure("f/1".parse()?, 4_usize.into() ),
+		// 		L1Instruction::PutStructure("f/1".parse_as()?, 4_usize.into() ),
 		// 		L1Instruction::SetValue(5_usize.into()),
-		// 		L1Instruction::PutStructure("p/3".parse()?, 1_usize.into() ),
+		// 		L1Instruction::PutStructure("p/3".parse_as()?, 1_usize.into() ),
 		// 		L1Instruction::SetValue(2_usize.into()),
 		// 		L1Instruction::SetValue(3_usize.into()),
 		// 		L1Instruction::SetValue(4_usize.into()),

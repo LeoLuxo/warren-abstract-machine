@@ -1,4 +1,4 @@
-use std::{fmt, str::FromStr};
+use std::fmt;
 
 use anyhow::{bail, Result};
 use derive_more::derive::Display;
@@ -7,6 +7,7 @@ use machine::M0;
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
 	machine_types::{HeapAddress, VarRegister},
+	parser::{Parsable, Parser},
 	subst::{ExtractSubstitution, StaticMapping},
 	universal_compiler::{CompilableProgram, CompilableQuery, Compiled},
 	Interpreter, Language, Substitution,
@@ -154,10 +155,8 @@ impl From<NonVariableTerm> for Term {
 	}
 }
 
-impl FromStr for NonVariableTerm {
-	type Err = anyhow::Error;
-
-	fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-		s.parse::<Term>()?.try_into()
+impl Parsable for NonVariableTerm {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		parser.match_type::<Term>()?.try_into()
 	}
 }

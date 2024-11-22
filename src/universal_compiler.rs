@@ -247,6 +247,8 @@ pub fn flatten_term(
 
 #[cfg(test)]
 mod tests {
+	use crate::parser::ParseAs;
+
 	use super::*;
 	use anyhow::Result;
 	use velcro::vec;
@@ -255,57 +257,57 @@ mod tests {
 	fn test_flatten_term_bottomup() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
+			flatten_term(VarRegister::default(), "c".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor("X1".parse()?, "c/0".parse()?)
+				MappingToken::Functor("X1".parse_as()?, "c/0".parse_as()?)
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
+			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor("X1".parse()?, "p/5".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::Functor("X1".parse_as()?, "p/5".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
+			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor("X2".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X7".parse()?),
-				MappingToken::Functor("X6".parse()?, "a/0".parse()?),
-				MappingToken::Functor("X5".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X6".parse()?),
-				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
-				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::Functor("X2".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X7".parse_as()?),
+				MappingToken::Functor("X6".parse_as()?, "a/0".parse_as()?),
+				MappingToken::Functor("X5".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X6".parse_as()?),
+				MappingToken::Functor("X3".parse_as()?, "h/2".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
+				MappingToken::Functor("X1".parse_as()?, "p/3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
+			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::BottomUp),
 			vec![
-				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
-				MappingToken::Functor("X4".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
-				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
+				MappingToken::Functor("X3".parse_as()?, "h/2".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
+				MappingToken::Functor("X4".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
+				MappingToken::Functor("X1".parse_as()?, "p/3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
 			]
 		);
 
@@ -316,57 +318,57 @@ mod tests {
 	fn test_flatten_term_topdown() -> Result<()> {
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "c".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
+			flatten_term(VarRegister::default(), "c".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor("X1".parse()?, "c/0".parse()?)
+				MappingToken::Functor("X1".parse_as()?, "c/0".parse_as()?)
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
+			flatten_term(VarRegister::default(), "p(X,Y,Z,Y,X)".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor("X1".parse()?, "p/5".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
+				MappingToken::Functor("X1".parse_as()?, "p/5".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
+			flatten_term(VarRegister::default(), "p(f(X), h(Y, f(a)), Y)".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::Functor("X2".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
-				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::VarRegister("X6".parse()?),
-				MappingToken::Functor("X6".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X7".parse()?),
-				MappingToken::Functor("X7".parse()?, "a/0".parse()?),
+				MappingToken::Functor("X1".parse_as()?, "p/3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::Functor("X2".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
+				MappingToken::Functor("X3".parse_as()?, "h/2".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::VarRegister("X6".parse_as()?),
+				MappingToken::Functor("X6".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X7".parse_as()?),
+				MappingToken::Functor("X7".parse_as()?, "a/0".parse_as()?),
 			]
 		);
 
 		#[rustfmt::skip]
 		assert_eq!(
-			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
+			flatten_term(VarRegister::default(), "p(Z, h(Z,W), f(W))".parse_as()?, &mut HashMap::default(), &mut VarRegister::default(), FlatteningOrder::TopDown),
 			vec![
-				MappingToken::Functor("X1".parse()?, "p/3".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X3".parse()?),
-				MappingToken::VarRegister("X4".parse()?),
-				MappingToken::Functor("X3".parse()?, "h/2".parse()?),
-				MappingToken::VarRegister("X2".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
-				MappingToken::Functor("X4".parse()?, "f/1".parse()?),
-				MappingToken::VarRegister("X5".parse()?),
+				MappingToken::Functor("X1".parse_as()?, "p/3".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X3".parse_as()?),
+				MappingToken::VarRegister("X4".parse_as()?),
+				MappingToken::Functor("X3".parse_as()?, "h/2".parse_as()?),
+				MappingToken::VarRegister("X2".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
+				MappingToken::Functor("X4".parse_as()?, "f/1".parse_as()?),
+				MappingToken::VarRegister("X5".parse_as()?),
 			]
 		);
 
