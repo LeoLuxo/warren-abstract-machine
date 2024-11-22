@@ -1,7 +1,6 @@
-use std::{ops::Index, str::FromStr};
+use std::{fmt::Debug, str::FromStr};
 
 use anyhow::{bail, ensure, Context, Ok, Result};
-use logos::{Lexer, Logos};
 use regex::Regex;
 
 use crate::{
@@ -32,13 +31,12 @@ macro_rules! parse_regex {
 }
 
 macro_rules! either {
-	{$first:expr; $($others:expr);+ $(;)?} => {
-		either!($first).or_else(|_| either!($($others);*))
-	};
-
-	{$action:expr} => {
-		$action
-	};
+	{parser: $parser:expr, $($options:expr);* $(;)?} => {{
+		$parser.push_checkpoint();
+		let result = Err(anyhow::anyhow!("None of the either!() options worked"))$(.or_else(|_| {$parser.rewind_checkpoint(); $options}))*;
+		$parser.pop_checkpoint();
+		result
+	}};
 }
 
 macro_rules! impl_fromstr_from_parsable {
@@ -108,7 +106,7 @@ impl Parsable for Clauses {
 
 impl Parsable for Clause {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {
+		either! {parser: parser,
 			parser.match_type::<Fact>().map(Into::into);
 			parser.match_type::<Rule>().map(Into::into);
 		}
@@ -160,7 +158,7 @@ impl Parsable for Terms {
 
 impl Parsable for Term {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		either! {
+		either! {parser: parser,
 			parser.match_type::<Structure>().map(Into::into);
 			parser.match_type::<Variable>().map(Into::into);
 			parser.match_type::<Constant>().map(Into::into);
@@ -181,7 +179,7 @@ impl Parsable for Structure {
 
 impl Parsable for Constant {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		let constant = either! {
+		let constant = either! {parser: parser,
 			parser.match_signed_integer().map(ToOwned::to_owned);
 			parser.match_lowercase_identifier().map(ToOwned::to_owned);
 		}?;
@@ -225,14 +223,18 @@ where
 
 pub struct Parser<'source> {
 	source: &'source str,
+	checkpoints: Vec<&'source str>,
 }
 
 impl<'source> Parser<'source> {
 	pub fn new(source: &'source str) -> Self {
-		Self { source }
+		Self {
+			source,
+			checkpoints: Default::default(),
+		}
 	}
 
-	pub fn parse<T: Parsable>(source: &'source str) -> Result<T> {
+	pub fn parse<T: Parsable + Debug>(source: &'source str) -> Result<T> {
 		let mut parser = Self::new(source);
 		let result = parser.match_type()?;
 		parser.match_end()?;
@@ -240,75 +242,103 @@ impl<'source> Parser<'source> {
 		Ok(result)
 	}
 
-	pub fn trim(&mut self) {
+	pub fn push_checkpoint(&mut self) {
+		self.checkpoints.push(self.source);
+	}
+
+	pub fn rewind_checkpoint(&mut self) {
+		self.source = self
+			.checkpoints
+			.last()
+			.expect("Tried to rewind to checkpoint, but no checkpoint available")
+	}
+
+	pub fn pop_checkpoint(&mut self) {
+		self.checkpoints.pop();
+	}
+
+	fn trim_offset(&mut self, length: usize) {
+		println!("before: {:?}", self.source);
+		self.source = &self.source[length..];
+		println!("after: {:?}", self.source);
+	}
+
+	fn trim_whitespace(&mut self) {
 		self.source = self.source.trim_start()
 	}
 
 	pub fn match_end(&mut self) -> Result<()> {
-		self.trim();
+		println!("match_end {}", self.source);
+
+		self.trim_whitespace();
 
 		if !self.source.is_empty() {
 			bail!("End not matched, found '{}'", self.source)
 		}
 
-		Ok(())
+		dbg!(Ok(()))
 	}
 
 	pub fn match_token(&mut self, token: &str) -> Result<()> {
-		self.trim();
+		println!("match_token {}", self.source);
+		self.trim_whitespace();
 
 		if !self.source.starts_with(token) {
 			bail!("Token '{}' not matched, found '{}'", token, self.source)
 		}
 
-		self.source = &self.source[token.len()..];
+		self.trim_offset(token.len());
 
-		Ok(())
+		dbg!(Ok(()))
 	}
 
 	pub fn match_regex(&mut self, regex: &str) -> Result<&str> {
-		self.trim();
+		println!("match_regex {}", self.source);
+		self.trim_whitespace();
 
 		let re_match = static_regex!(&format!("^{}", regex))
-			.find_at(&self.source, 0)
+			.find_at(self.source, 0)
 			.context(format!(
 				"Regex pattern '{}' not matched, found '{}'",
 				regex, self.source
 			))?;
 
-		self.source = &self.source[re_match.end()..];
+		self.trim_offset(re_match.end());
 
-		Ok(re_match.as_str())
+		dbg!(Ok(re_match.as_str()))
 	}
 
 	pub fn match_regex_captures<const N: usize>(&mut self, regex: &str) -> Result<[&str; N]> {
-		self.trim();
+		println!("match_regex_captures {}", self.source);
+		self.trim_whitespace();
 
 		let (full_match, captures) = static_regex!(&format!("^{}", regex))
-			.captures(&self.source)
+			.captures(self.source)
 			.context(format!(
 				"Regex pattern '{}' not matched, found '{}'",
 				regex, self.source
 			))?
 			.extract::<{ N }>();
 
-		self.source = &self.source[full_match.len()..];
+		self.trim_offset(full_match.len());
 
-		Ok(captures)
+		dbg!(Ok(captures))
 	}
 
-	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
-		self.trim();
+	pub fn match_type<T: Parsable + Debug>(&mut self) -> Result<T> {
+		println!("match_type {}", self.source);
+		self.trim_whitespace();
 
-		<T as Parsable>::parser_match(self)
+		dbg!(<T as Parsable>::parser_match(self))
 	}
 
-	pub fn match_sequence<T: Parsable>(
+	pub fn match_sequence<T: Parsable + Debug>(
 		&mut self,
 		separator: &str,
 		minimum: Option<usize>,
 		// until: impl Fn(&mut Self) -> Result<()>,
 	) -> Result<Vec<T>> {
+		println!("match_sequence {}", self.source);
 		let backup_source = self.source;
 
 		let result = self.match_sequence_unchecked(separator, minimum);
@@ -318,15 +348,17 @@ impl<'source> Parser<'source> {
 			self.source = backup_source;
 		}
 
-		result
+		dbg!(result)
 	}
 
-	fn match_sequence_unchecked<T: Parsable>(&mut self, separator: &str, minimum: Option<usize>) -> Result<Vec<T>> {
+	fn match_sequence_unchecked<T: Parsable + Debug>(
+		&mut self,
+		separator: &str,
+		minimum: Option<usize>,
+	) -> Result<Vec<T>> {
 		let mut result = Vec::new();
 
 		loop {
-			self.trim();
-
 			let inner = self.match_type::<T>();
 			if let Result::Ok(inner) = inner {
 				result.push(inner);
@@ -351,350 +383,30 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_identifier(&mut self) -> Result<&str> {
+		println!("match_identifier {}", self.source);
 		self.match_regex(r"[\p{XID_Start}_][\p{XID_Continue}#]*")
 	}
 
 	pub fn match_lowercase_identifier(&mut self) -> Result<&str> {
+		println!("match_lowercase_identifier {}", self.source);
 		self.match_regex(r"[a-z][a-zA-Z0-9]*")
 	}
 
 	pub fn match_uppercase_identifier(&mut self) -> Result<&str> {
+		println!("match_uppercase_identifier {}", self.source);
 		self.match_regex(r"[A-Z][a-zA-Z0-9]*")
 	}
 
 	pub fn match_integer(&mut self) -> Result<&str> {
+		println!("match_integer {}", self.source);
 		self.match_regex(r"[1-9][0-9]*|0")
 	}
 
 	pub fn match_signed_integer(&mut self) -> Result<&str> {
+		println!("match_signed_integer {}", self.source);
 		self.match_regex(r"[+-]?[1-9][0-9]*|0")
 	}
 }
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-// impl FromStr for Clauses {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		parse_sequence!(s, "\n", parse: Clause, collect: Vec<_>).map(Into::into)
-// 	}
-// }
-
-// impl FromStr for Clause {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		try_each_and_map! {(Into::into);
-// 			s.parse::<Fact>(),
-// 			s.parse::<Rule>()
-// 		}
-// 	}
-// }
-
-// impl FromStr for Fact {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		let atom = parse_regex!(s, r"^([^.:-]*?)\.$").parse::<Atom>()?;
-
-// 		Ok(Fact(atom))
-// 	}
-// }
-
-// impl FromStr for Rule {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		let [head, body] = parse_regex!(s, r"^([^.:-]*?):-([^.:-]*?)\.$", 2);
-
-// 		Ok(Rule {
-// 			head: head.parse()?,
-// 			body: body.parse()?,
-// 		})
-// 	}
-// }
-
-// impl FromStr for Atoms {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		parse_sequence!(s, ",", parse: Atom, collect: Vec<_>).map(Into::into)
-// 	}
-// }
-
-// impl FromStr for Atom {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
-
-// 		Ok(Atom {
-// 			name: name.to_owned().into(),
-// 			terms: terms.parse()?,
-// 		})
-// 	}
-// }
-
-// impl FromStr for Terms {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		parse_sequence!(s, ",", parse: Term, collect: Vec<_>).map(Into::into)
-// 	}
-// }
-
-// impl FromStr for Term {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		try_each_and_map! {(Into::into);
-// 			s.parse::<Constant>(),
-// 			s.parse::<Variable>(),
-// 			s.parse::<Structure>()
-// 		}
-// 		// let [name, terms] = parse_regex!(s, r"^(.*?)\((.*?)\)$", 2);
-
-// 		// Ok(Atom {
-// 		// 	name: name.into(),
-// 		// 	terms: terms.parse()?,
-// 		// })
-// 	}
-// }
-
-// impl FromStr for Constant {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		Ok(parse_regex!(s, r"^([a-z0-9][a-zA-Z0-9]*)$").to_owned().into())
-// 	}
-// }
-
-// impl FromStr for Variable {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		Ok(parse_regex!(s, r"^([A-Z][a-zA-Z0-9]*)$").to_owned().into())
-// 	}
-// }
-
-// impl FromStr for Structure {
-// 	type Err = Err;
-
-// 	fn from_str(s: &str) -> Result<Self> {
-// 		let [name, terms] = parse_regex!(s, r"^([\p{XID_Start}_#][\p{XID_Continue}#]*)\((.*)\)$", 2);
-
-// 		Ok(Self {
-// 			name: name.to_owned().into(),
-// 			arguments: terms.parse()?,
-// 		})
-// 	}
-// }
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-// #[derive(Clone, Debug, Logos, Eq, PartialEq)]
-// #[logos(skip r"[ \t\f]+")]
-// enum PrologToken {
-// 	/// A comment, a percent followed by any number of characters until the end of the line.
-// 	/// Is automatically skipped by the lexer
-// 	#[regex(r"%[^\n\r]*", logos::skip)]
-// 	Comment,
-
-// 	/// A line break, so any permutation of \n and \r for one of more empty lines.
-// 	/// Is automatically skipped by the lexer
-// 	#[regex(r"[\n|\r|\r\n]+", logos::skip)]
-// 	LineBreak,
-
-// 	#[token(",")]
-// 	Comma,
-// 	#[token(".")]
-// 	Dot,
-// 	#[token(":-")]
-// 	Implies,
-// 	#[token(")")]
-// 	CloseParenthesis,
-
-// 	/// An uppercase identifier
-// 	#[regex(r"[A-Z][a-zA-Z0-9]*", lex_identifier)]
-// 	VariableIdentifier(String),
-
-// 	/// A lowercase identifier
-// 	#[regex(r"[a-z0-9][a-zA-Z0-9]*", lex_identifier)]
-// 	ConstantIdentifier(String),
-
-// 	/// An identifier for a functor (matches the open parenthesis)
-// 	#[regex(r"[\p{XID_Start}_#][\p{XID_Continue}#]*\(", lex_functor)]
-// 	Functor(String),
-// }
-
-// /// The callback to extract an identifier.
-// /// Simply gets the string
-// fn lex_identifier(lexer: &mut Lexer<PrologToken>) -> String {
-// 	lexer.slice().to_owned()
-// }
-
-// fn lex_functor(lexer: &mut Lexer<PrologToken>) -> String {
-// 	let slice = lexer.slice();
-// 	slice[..slice.len() - 1].to_owned()
-// }
-
-// struct Parser<'source>(Lexer<'source, PrologToken>);
-
-// impl<'a> Parser<'a> {
-// 	fn new(source: &'a str) -> Parser<'a> {
-// 		Parser(PrologToken::lexer(source))
-// 	}
-
-// 	fn next(&mut self) -> Option<PrologToken> {
-// 		if let Some(Ok(token)) = self.0.next() {
-// 			Some(token)
-// 		} else {
-// 			None
-// 		}
-// 	}
-
-// 	fn has_next(&self) -> bool {
-// 		let next = self.0.clone().next();
-
-// 		// with a logos lexer, the outer Option denotes whether there is a next lexed token to be parsed, while the inner Result denotes whether the token was lexed successfully
-// 		next.is_some()
-// 	}
-
-// 	fn parse_clauses(&mut self, minimum: Option<usize>) -> Result<Clauses> {
-// 		let mut clauses = Clauses::new();
-
-// 		while self.has_next() {
-// 			clauses.push(self.parse_clause()?);
-// 		}
-
-// 		if let Some(minimum) = minimum {
-// 			ensure!(
-// 				clauses.len() >= minimum,
-// 				"found zero clauses, expected at least {minimum}"
-// 			);
-// 		}
-
-// 		Ok(clauses)
-// 	}
-
-// 	fn parse_clause(&mut self) -> Result<Clause> {
-// 		let head = self.parse_atom()?;
-
-// 		match self.next() {
-// 			Some(token) => match token {
-// 				PrologToken::Dot => Ok(Clause::Fact(Fact(head))),
-
-// 				PrologToken::Implies => Ok(Clause::Rule(Rule {
-// 					head,
-// 					body: self.parse_atoms(Some(1))?,
-// 				})),
-
-// 				_ => bail!("syntax error, expected . or :-"),
-// 			},
-// 			_ => bail!("syntax error, unexpected end of clause"),
-// 		}
-// 	}
-
-// 	fn parse_atoms(&mut self, minimum: Option<usize>) -> Result<Atoms> {
-// 		let mut atoms = Atoms::new();
-
-// 		loop {
-// 			atoms.push(self.parse_atom()?);
-
-// 			match self.next() {
-// 				Some(token) => match token {
-// 					PrologToken::Comma => continue,
-
-// 					PrologToken::Dot => {
-// 						if let Some(minimum) = minimum {
-// 							ensure!(
-// 								atoms.len() >= minimum,
-// 								"rule has zero body atoms, expected at least {minimum}"
-// 							);
-// 						}
-
-// 						return Ok(atoms);
-// 					}
-
-// 					_ => bail!("syntax error, expected , or ."),
-// 				},
-// 				_ => bail!("syntax error, unexpected end of body atoms"),
-// 			}
-// 		}
-// 	}
-
-// 	fn parse_atom(&mut self) -> Result<Atom> {
-// 		if let Some(PrologToken::Functor(functor)) = self.next() {
-// 			Ok(Atom {
-// 				name: functor.into(),
-// 				terms: self.parse_terms(Some(1))?,
-// 			})
-// 		} else {
-// 			bail!("syntax error, expected atom functor")
-// 		}
-// 	}
-
-// 	fn parse_term(&mut self) -> Result<Term> {
-// 		match self.next() {
-// 			Some(token) => match token {
-// 				PrologToken::Functor(functor) => Ok(Term::Structure(Structure {
-// 					name: functor.into(),
-// 					arguments: self.parse_terms(Some(1))?,
-// 				})),
-
-// 				PrologToken::VariableIdentifier(ident) => Ok(Term::Variable(Variable(ident.into()))),
-
-// 				PrologToken::ConstantIdentifier(ident) => Ok(Term::Constant(Constant(ident.into()))),
-
-// 				_ => bail!("syntax error, expected identifier"),
-// 			},
-// 			_ => bail!("syntax error, unexpected end of term"),
-// 		}
-// 	}
-
-// 	fn parse_terms(&mut self, minimum: Option<usize>) -> Result<Terms> {
-// 		let mut terms = Terms::new();
-
-// 		loop {
-// 			terms.push(self.parse_term()?);
-
-// 			match self.next() {
-// 				Some(token) => match token {
-// 					PrologToken::Comma => continue,
-
-// 					PrologToken::CloseParenthesis => {
-// 						if let Some(minimum) = minimum {
-// 							ensure!(
-// 								terms.len() >= minimum,
-// 								"structure has zero arguments, expected at least {minimum}"
-// 							);
-// 						}
-
-// 						return Ok(terms);
-// 					}
-
-// 					_ => bail!("syntax error, expected , or )"),
-// 				},
-// 				_ => bail!("syntax error, unexpected end of arguments"),
-// 			}
-// 		}
-// 	}
-// }
 
 /*
 --------------------------------------------------------------------------------

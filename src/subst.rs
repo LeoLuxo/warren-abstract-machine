@@ -9,7 +9,6 @@ use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
 use std::{
-	cmp::Ordering,
 	collections::{hash_map::Entry, BTreeMap, HashMap},
 	hash::Hash,
 	mem,
