@@ -132,11 +132,11 @@ mod tests {
 
 	#[test]
 	fn test_compile_program() -> Result<()> {
-		#[rustfmt::skip]
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)"
 				.parse_as::<NonVariableTerm>()?
-				.compile_as_program()?.instructions,
+				.compile_as_program()?
+				.instructions,
 			vec![
 				L0Instruction::GetStructure("p/3".parse_as()?, "X1".parse_as()?),
 				L0Instruction::UnifyVariable("X2".parse_as()?),
@@ -158,11 +158,11 @@ mod tests {
 
 	#[test]
 	fn test_compile_query() -> Result<()> {
-		#[rustfmt::skip]
 		assert_eq!(
 			"p(Z, h(Z,W), f(W))"
 				.parse_as::<NonVariableTerm>()?
-				.compile_as_query()?.instructions,
+				.compile_as_query()?
+				.instructions,
 			vec![
 				L0Instruction::PutStructure("h/2".parse_as()?, "X3".parse_as()?),
 				L0Instruction::SetVariable("X2".parse_as()?),

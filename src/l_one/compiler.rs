@@ -64,7 +64,7 @@ impl CompilableQuery<L1> for Fact {
 		let context = VariableContext::Query;
 		let (tokens, var_mapping) = flatten_fact(self, order, context);
 
-		let mut instructions = compile_program_tokens(tokens);
+		let mut instructions = compile_query_tokens(tokens);
 		instructions.push(L1Instruction::Call(fact_label));
 
 		Ok(Compiled {
@@ -157,11 +157,11 @@ mod tests {
 	fn test_compile_program() -> Result<()> {
 		// The wambook has the last getvalue X5,A3 3 instructions earlier,
 		// I posit that this variation doesn't change the validity of the instruction sequence
-		#[rustfmt::skip]
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)."
 				.parse_as::<Facts>()?
-				.compile_as_program()?.instructions,
+				.compile_as_program()?
+				.instructions,
 			vec![
 				L1Instruction::GetStructure("f/1".parse_as()?, "A1".parse_as()?),
 				L1Instruction::UnifyVariable("X4".parse_as()?),
@@ -181,23 +181,21 @@ mod tests {
 
 	#[test]
 	fn test_compile_query() -> Result<()> {
-		// #[rustfmt::skip]
-		// assert_eq!(
-		// 	"p(Z, h(Z,W), f(W))"
-		// 		.parse_as::<Fact>()?
-		// 		.compile_as_query()?.instructions,
-		// 	vec![
-		// 		L1Instruction::PutStructure("h/2".parse_as()?, "X3".parse_as()?),
-		// 		L1Instruction::SetVariable("X2".parse_as()?),
-		// 		L1Instruction::SetVariable("X5".parse_as()?),
-		// 		L1Instruction::PutStructure("f/1".parse_as()?, "X4".parse_as()?),
-		// 		L1Instruction::SetValue("X5".parse_as()?),
-		// 		L1Instruction::PutStructure("p/3".parse_as()?, "X1".parse_as()?),
-		// 		L1Instruction::SetValue("X2".parse_as()?),
-		// 		L1Instruction::SetValue("X3".parse_as()?),
-		// 		L1Instruction::SetValue("X4".parse_as()?),
-		// 	]
-		// );
+		assert_eq!(
+			"p(Z, h(Z,W), f(W))."
+				.parse_as::<Fact>()?
+				.compile_as_query()?
+				.instructions,
+			vec![
+				L1Instruction::PutVariable("X4".parse_as()?, "X1".parse_as()?),
+				L1Instruction::PutStructure("h/2".parse_as()?, "X2".parse_as()?),
+				L1Instruction::SetValue("X4".parse_as()?),
+				L1Instruction::SetVariable("X5".parse_as()?),
+				L1Instruction::PutStructure("f/1".parse_as()?, "X3".parse_as()?),
+				L1Instruction::SetValue("X5".parse_as()?),
+				L1Instruction::Call("p/3".into())
+			]
+		);
 
 		Ok(())
 	}
