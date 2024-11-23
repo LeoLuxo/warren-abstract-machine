@@ -3,14 +3,13 @@ use crate::{
 	ast::{Constant, Identifier, Structure, Variable},
 	display_map,
 	machine_types::{HeapAddress, VarRegister},
-	util::Successor,
 	Language,
 };
 use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
 use std::{
-	collections::{hash_map::Entry, BTreeMap, HashMap},
+	collections::{HashMap},
 	hash::Hash,
 	mem,
 };

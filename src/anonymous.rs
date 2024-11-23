@@ -1,18 +1,8 @@
-use crate::{
-	ast::{Constant, Identifier, Structure, Variable},
-	display_map,
-	machine_types::{HeapAddress, VarRegister},
-	subst::SubstTerm,
-	util::Successor,
-	Language,
-};
-use anyhow::Result;
-use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
-use itertools::Itertools;
+use crate::{ast::Structure, subst::SubstTerm, util::Successor};
+use derive_more::derive::{Display, From};
 use std::{
-	collections::{hash_map::Entry, BTreeMap, HashMap},
+	collections::{hash_map::Entry, HashMap},
 	hash::Hash,
-	mem,
 };
 
 /*
