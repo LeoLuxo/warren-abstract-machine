@@ -4,10 +4,11 @@ use anyhow::{bail, Result};
 use derive_more::derive::Display;
 
 use crate::{
+	anonymous::AnonymousIdGenerator,
 	ast::{Constant, Functor, Structure},
 	enumerate, indent,
 	machine_types::{Heap, HeapAddress, VarRegister, VarRegisters},
-	subst::{AnonymousIdGenerator, ExtractSubstitution, SubstTerm},
+	subst::{ExtractSubstitution, SubstTerm},
 };
 
 use super::{L0Instruction, L0};

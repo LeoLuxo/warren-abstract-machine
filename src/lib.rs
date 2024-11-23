@@ -17,6 +17,7 @@ pub mod parser;
 pub mod subst;
 pub mod universal_compiler;
 pub mod util;
+pub mod anonymous;
 
 pub fn solve<L: Language>(program: L::Program, query: L::Query) -> Result<Substitution> {
 	L::Interpreter::solve(program, query)

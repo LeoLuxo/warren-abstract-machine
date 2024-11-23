@@ -2,10 +2,11 @@ use anyhow::{bail, ensure, Context, Ok, Result};
 use regex::Regex;
 
 use crate::{
+	anonymous::AnonymousIdentifier,
 	ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Functor, Rule, Structure, Term, Terms, Variable},
 	machine_types::VarRegister,
 	regex_force_beginning, static_regex,
-	subst::{AnonymousIdentifier, SubstTerm, Substitution},
+	subst::{ScopedVariable, SubstTerm, Substitution, VariableContext},
 };
 
 /*
@@ -100,6 +101,22 @@ impl Parsable for AnonymousIdentifier {
 		let id = parser.match_integer()?.parse::<u32>()?;
 
 		Ok(id.into())
+	}
+}
+
+impl Parsable for ScopedVariable {
+	fn parser_match(parser: &mut Parser) -> Result<Self> {
+		let variable = parser.match_type::<Variable>()?;
+
+		let context = if parser.match_token("<").is_ok() {
+			let ctx = parser.match_identifier()?.to_owned().into();
+			parser.match_token(">")?;
+			VariableContext::Local(ctx)
+		} else {
+			VariableContext::Query
+		};
+
+		Ok(ScopedVariable::new(variable, context))
 	}
 }
 
@@ -543,7 +560,35 @@ mod tests {
 
 	#[test]
 	fn test_parse_substitution() -> Result<()> {
-		// assert_eq!("{ X -> ?1, Y -> ?1, Z -> ?2 }".parse_as::<Substitution>(), hash_map!());
+		assert_eq!("{}".parse_as::<Substitution>()?, Substitution::default());
+
+		assert_eq!(
+			"{ X -> ?1, Y -> ?1, Z -> ?2 }".parse_as::<Substitution>()?,
+			hash_map!(
+				"X".parse_as()?: "?1".parse_as()?,
+				"Y".parse_as()?: "?1".parse_as()?,
+				"Z".parse_as()?: "?2".parse_as()?,
+			)
+			.into()
+		);
+
+		assert_eq!(
+			"{ X -> ?1, Y -> ?1, Z -> ?2 }".parse_as::<Substitution>()?,
+			hash_map!(
+				"X".parse_as()?: "?567".parse_as()?,
+				"Y".parse_as()?: "?567".parse_as()?,
+				"Z".parse_as()?: "?789".parse_as()?,
+			)
+			.into()
+		);
+
+		assert_eq!(
+			"{ C -> f(a, X) }".parse_as::<Substitution>()?,
+			hash_map!(
+				"C".parse_as()?: "f(a, X)".parse_as()?,
+			)
+			.into()
+		);
 
 		Ok(())
 	}

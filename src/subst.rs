@@ -1,4 +1,5 @@
 use crate::{
+	anonymous::{AnonymousEq, AnonymousIdGenerator, AnonymousIdentifier},
 	ast::{Constant, Identifier, Structure, Variable},
 	display_map,
 	machine_types::{HeapAddress, VarRegister},
@@ -13,44 +14,6 @@ use std::{
 	hash::Hash,
 	mem,
 };
-
-/*
---------------------------------------------------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
---------------------------------------------------------------------------------
-*/
-
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, From, Display)]
-#[display("?{}", _0)]
-#[from(forward)]
-pub struct AnonymousIdentifier(u32);
-
-impl Successor for AnonymousIdentifier {
-	fn next(&self) -> Self {
-		Self(self.0 + 1)
-	}
-}
-
-impl Default for AnonymousIdentifier {
-	fn default() -> Self {
-		Self(1)
-	}
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From)]
-pub struct AnonymousIdGenerator<T: Hash + Eq> {
-	map: HashMap<T, AnonymousIdentifier>,
-	next_identifier: AnonymousIdentifier,
-}
-
-impl<T: Hash + Eq> AnonymousIdGenerator<T> {
-	pub fn get_identifier(&mut self, unique_value: T) -> AnonymousIdentifier {
-		match self.map.entry(unique_value) {
-			Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-			Entry::Vacant(vacant_entry) => *vacant_entry.insert(self.next_identifier.post_incr()),
-		}
-	}
-}
 
 /*
 --------------------------------------------------------------------------------
@@ -76,6 +39,10 @@ pub struct ScopedVariable {
 }
 
 impl ScopedVariable {
+	pub fn new(variable: Variable, context: VariableContext) -> Self {
+		Self { context, variable }
+	}
+
 	pub fn set_context(&mut self, context: VariableContext) {
 		self.context = context;
 	}
@@ -180,9 +147,28 @@ pub trait StaticMapping {
 	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress>;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, Display, Deref, DerefMut)]
+#[derive(Clone, Debug, Default, Eq, From, Display, Deref, DerefMut)]
 #[display("{{ {} }}", display_map!(_0))]
 pub struct Substitution(HashMap<ScopedVariable, SubstTerm>);
+
+impl PartialEq for Substitution {
+	fn eq(&self, other: &Self) -> bool {
+		let mut mapping_self = AnonymousIdGenerator::default();
+		let mut mapping_other = AnonymousIdGenerator::default();
+
+		for (self_var, self_term) in self.0.iter() {
+			let Some(other_term) = other.0.get(self_var) else {
+				return false;
+			};
+
+			if !self_term.anonymous_eq(other_term, &mut mapping_self, &mut mapping_other) {
+				return false;
+			}
+		}
+
+		true
+	}
+}
 
 impl FromIterator<(ScopedVariable, SubstTerm)> for Substitution {
 	fn from_iter<T: IntoIterator<Item = (ScopedVariable, SubstTerm)>>(iter: T) -> Self {
@@ -201,37 +187,10 @@ pub enum SubstTerm {
 
 impl PartialEq for SubstTerm {
 	fn eq(&self, other: &Self) -> bool {
-		let mut term_stack = vec![self, other];
-		let mut anon_mapping_left = AnonymousIdGenerator::default();
-		let mut anon_mapping_right = AnonymousIdGenerator::default();
+		let mut mapping_self = AnonymousIdGenerator::default();
+		let mut mapping_other = AnonymousIdGenerator::default();
 
-		while !term_stack.is_empty() {
-			let result = match (term_stack.pop().unwrap(), term_stack.pop().unwrap()) {
-				(Self::Constant(l), Self::Constant(r)) => l == r,
-				(Self::Variable(l), Self::Variable(r)) => l == r,
-
-				(Self::Structure(l), Self::Structure(r)) => {
-					term_stack.extend(l.arguments.iter().interleave(r.arguments.iter()));
-
-					l.name == r.name && l.arguments.len() == r.arguments.len()
-				}
-
-				(Self::Unbound(l), Self::Unbound(r)) => {
-					let id_l = anon_mapping_left.get_identifier(*l);
-					let id_r = anon_mapping_right.get_identifier(*r);
-
-					id_l == id_r
-				}
-
-				_ => false,
-			};
-
-			if !result {
-				return false;
-			}
-		}
-
-		true
+		self.anonymous_eq(other, &mut mapping_self, &mut mapping_other)
 	}
 }
 
@@ -290,63 +249,117 @@ where
 	}
 }
 
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 #[cfg(test)]
 mod tests {
+	use crate::parser::ParseAs;
+
 	use super::*;
+
+	#[test]
+	fn test_substitution_eq() -> Result<()> {
+		assert_eq!("{}".parse_as::<Substitution>()?, "{}".parse_as::<Substitution>()?);
+
+		assert_eq!(
+			"{ A -> c }".parse_as::<Substitution>()?,
+			"{A->c}".parse_as::<Substitution>()?
+		);
+
+		assert_eq!(
+			"{ A -> ?1 }".parse_as::<Substitution>()?,
+			"{ A -> ?1 }".parse_as::<Substitution>()?
+		);
+
+		assert_eq!(
+			"{ A -> ?1 }".parse_as::<Substitution>()?,
+			"{ A -> ?2 }".parse_as::<Substitution>()?
+		);
+
+		assert_eq!(
+			"{ A -> ?1 }".parse_as::<Substitution>()?,
+			"{ A -> ?2 }".parse_as::<Substitution>()?
+		);
+
+		assert_eq!(
+			"{ X -> ?1, Y -> ?2 }".parse_as::<Substitution>()?,
+			"{ X -> ?123, Y -> ?456 }".parse_as::<Substitution>()?
+		);
+
+		assert_eq!(
+			"{ X -> ?1, Y -> ?1 }".parse_as::<Substitution>()?,
+			"{ X -> ?123, Y -> ?123 }".parse_as::<Substitution>()?
+		);
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_substitution_ne() -> Result<()> {
+		assert_ne!(
+			"{ A -> c }".parse_as::<Substitution>()?,
+			"{ X -> c }".parse_as::<Substitution>()?
+		);
+
+		assert_ne!(
+			"{ A -> c }".parse_as::<Substitution>()?,
+			"{ A -> d }".parse_as::<Substitution>()?
+		);
+
+		assert_ne!(
+			"{ A -> X }".parse_as::<Substitution>()?,
+			"{ A -> Y }".parse_as::<Substitution>()?
+		);
+
+		assert_ne!(
+			"{ X -> ?1, Y -> ?1 }".parse_as::<Substitution>()?,
+			"{ X -> ?123, Y -> ?456 }".parse_as::<Substitution>()?
+		);
+
+		Ok(())
+	}
 
 	#[test]
 	fn test_subst_term_eq() {
 		assert_eq!(SubstTerm::Constant("a".into()), SubstTerm::Constant("a".into()));
 		assert_eq!(SubstTerm::Variable("X".into()), SubstTerm::Variable("X".into()));
 
-		assert_eq!(
-			SubstTerm::Unbound(AnonymousIdentifier(1)),
-			SubstTerm::Unbound(AnonymousIdentifier(1))
-		);
+		assert_eq!(SubstTerm::Unbound(1_u32.into()), SubstTerm::Unbound(1_u32.into()));
 
 		assert_ne!(SubstTerm::Constant("a".into()), SubstTerm::Constant("b".into()));
 		assert_ne!(SubstTerm::Variable("X".into()), SubstTerm::Variable("Y".into()));
 
-		assert_eq!(
-			SubstTerm::Unbound(AnonymousIdentifier(1)),
-			SubstTerm::Unbound(AnonymousIdentifier(2))
-		);
+		assert_eq!(SubstTerm::Unbound(1_u32.into()), SubstTerm::Unbound(2_u32.into()));
 
 		assert_eq!(
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
-				arguments: vec![
-					SubstTerm::Unbound(AnonymousIdentifier(1)),
-					SubstTerm::Unbound(AnonymousIdentifier(1))
-				]
-				.into()
+				arguments: vec![SubstTerm::Unbound(1_u32.into()), SubstTerm::Unbound(1_u32.into())].into()
 			}),
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
-				arguments: vec![
-					SubstTerm::Unbound(AnonymousIdentifier(2)),
-					SubstTerm::Unbound(AnonymousIdentifier(2))
-				]
-				.into()
+				arguments: vec![SubstTerm::Unbound(2_u32.into()), SubstTerm::Unbound(2_u32.into())].into()
 			})
 		);
 
 		assert_ne!(
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
-				arguments: vec![
-					SubstTerm::Unbound(AnonymousIdentifier(1)),
-					SubstTerm::Unbound(AnonymousIdentifier(2))
-				]
-				.into()
+				arguments: vec![SubstTerm::Unbound(1_u32.into()), SubstTerm::Unbound(2_u32.into())].into()
 			}),
 			SubstTerm::Structure(Structure {
 				name: "f".into(),
-				arguments: vec![
-					SubstTerm::Unbound(AnonymousIdentifier(2)),
-					SubstTerm::Unbound(AnonymousIdentifier(2))
-				]
-				.into()
+				arguments: vec![SubstTerm::Unbound(2_u32.into()), SubstTerm::Unbound(2_u32.into())].into()
 			})
 		);
 	}
