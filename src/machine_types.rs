@@ -1,5 +1,5 @@
 use std::{
-	collections::BTreeMap,
+	collections::{BTreeMap, HashMap},
 	fmt::Display,
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
@@ -39,7 +39,7 @@ impl Successor for VarRegister {
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
 #[display("{}", display_map!(_0, "\n", "{} = {}"))]
 #[display(bounds(C: Display + Ord))]
-pub struct VarRegisters<C>(BTreeMap<VarRegister, C>);
+pub struct VarRegisters<C>(HashMap<VarRegister, C>);
 
 impl<C> VarRegisters<C> {
 	pub fn set(&mut self, index: VarRegister, value: C) {

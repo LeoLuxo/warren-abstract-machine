@@ -106,7 +106,7 @@ impl From<ScopedVariable> for Variable {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
 #[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(BTreeMap<ScopedVariable, VarRegister>);
+pub struct VarToRegMapping(HashMap<ScopedVariable, VarRegister>);
 
 impl VarToRegMapping {
 	pub fn filter_by_context(&mut self, context: VariableContext) {
@@ -134,19 +134,19 @@ impl VarToRegMapping {
 
 impl FromIterator<(ScopedVariable, VarRegister)> for VarToRegMapping {
 	fn from_iter<T: IntoIterator<Item = (ScopedVariable, VarRegister)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter).into()
+		HashMap::from_iter(iter).into()
 	}
 }
 
 impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
 	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
+		HashMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
 	}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
 #[display("{}", display_map!(_0))]
-pub struct VarToHeapMapping(BTreeMap<ScopedVariable, HeapAddress>);
+pub struct VarToHeapMapping(HashMap<ScopedVariable, HeapAddress>);
 
 impl VarToHeapMapping {
 	pub fn filter_by_context(&mut self, context: VariableContext) {
@@ -159,13 +159,13 @@ impl VarToHeapMapping {
 
 impl FromIterator<(ScopedVariable, HeapAddress)> for VarToHeapMapping {
 	fn from_iter<T: IntoIterator<Item = (ScopedVariable, HeapAddress)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter).into()
+		HashMap::from_iter(iter).into()
 	}
 }
 
 impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
 	fn from_iter<T: IntoIterator<Item = (Variable, HeapAddress)>>(iter: T) -> Self {
-		BTreeMap::from_iter(iter.into_iter().map(|(var, addr)| (var.into(), addr))).into()
+		HashMap::from_iter(iter.into_iter().map(|(var, addr)| (var.into(), addr))).into()
 	}
 }
 
@@ -281,7 +281,7 @@ where
 		let mut substitution = Substitution::default();
 		let mut anon_map = AnonymousIdGenerator::default();
 
-		for (var, address) in var_heap_mapping.into_iter() {
+		for (var, address) in var_heap_mapping.into_iter().sorted() {
 			let entry = self.extract_heap(address, &mut anon_map)?;
 			substitution.insert(var, entry);
 		}

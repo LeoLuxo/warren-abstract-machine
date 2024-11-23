@@ -244,9 +244,7 @@ impl<'source> Parser<'source> {
 	}
 
 	fn trim_offset(&mut self, length: usize) {
-		println!("before: {:?}", self.source);
 		self.source = &self.source[length..];
-		println!("after: {:?}", self.source);
 	}
 
 	fn trim_whitespace(&mut self) {
@@ -254,19 +252,16 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_end(&mut self) -> Result<()> {
-		println!("match_end | source:{}", self.source);
-
 		self.trim_whitespace();
 
 		if !self.source.is_empty() {
 			bail!("End not matched, found '{}'", self.source)
 		}
 
-		dbg!(Ok(()))
+		Ok(())
 	}
 
 	pub fn match_token(&mut self, token: &str) -> Result<()> {
-		println!("match_token | source:{}", self.source);
 		self.trim_whitespace();
 
 		if !self.source.starts_with(token) {
@@ -275,11 +270,10 @@ impl<'source> Parser<'source> {
 
 		self.trim_offset(token.len());
 
-		dbg!(Ok(()))
+		Ok(())
 	}
 
 	pub fn match_regex(&mut self, regex: &str) -> Result<&str> {
-		println!("match_regex regex: {} | source:{}", regex, self.source);
 		self.trim_whitespace();
 
 		let re_match = static_regex!(regex_force_beginning!(regex))
@@ -292,11 +286,10 @@ impl<'source> Parser<'source> {
 
 		self.trim_offset(re_match.end());
 
-		dbg!(Ok(re_match.as_str()))
+		Ok(re_match.as_str())
 	}
 
 	pub fn match_regex_captures<const N: usize>(&mut self, regex: &str) -> Result<[&str; N]> {
-		println!("match_regex_captures | source:{}", self.source);
 		self.trim_whitespace();
 
 		let (full_match, captures) = static_regex!(regex_force_beginning!(regex))
@@ -309,18 +302,16 @@ impl<'source> Parser<'source> {
 
 		self.trim_offset(full_match.len());
 
-		dbg!(Ok(captures))
+		Ok(captures)
 	}
 
 	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
-		println!("match_type | source:{}", self.source);
 		self.trim_whitespace();
 
 		<T as Parsable>::parser_match(self)
 	}
 
 	pub fn match_sequence_by_type<T: Parsable>(&mut self, separator: &str, minimum: Option<usize>) -> Result<Vec<T>> {
-		println!("match_sequence | source:{}", self.source);
 		self.match_sequence_with(separator, minimum, |p| p.match_type::<T>())
 	}
 
@@ -330,8 +321,6 @@ impl<'source> Parser<'source> {
 		minimum: Option<usize>,
 		inner_fn: impl Fn(&mut Self) -> Result<T>,
 	) -> Result<Vec<T>> {
-		println!("match_sequence | source:{}", self.source);
-
 		self.push_checkpoint();
 
 		let result = self.match_sequence_with_unchecked(separator, minimum, inner_fn);
@@ -378,27 +367,22 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_identifier(&mut self) -> Result<&str> {
-		println!("match_identifier | source:{}", self.source);
 		self.match_regex(r"[a-zA-Z_][a-zA-Z0-9_]*")
 	}
 
 	pub fn match_lowercase_identifier(&mut self) -> Result<&str> {
-		println!("match_lowercase_identifier | source:{}", self.source);
 		self.match_regex(r"[a-z][a-zA-Z0-9]*")
 	}
 
 	pub fn match_uppercase_identifier(&mut self) -> Result<&str> {
-		println!("match_uppercase_identifier | source:{}", self.source);
 		self.match_regex(r"[A-Z][a-zA-Z0-9]*")
 	}
 
 	pub fn match_integer(&mut self) -> Result<&str> {
-		println!("match_integer | source:{}", self.source);
 		self.match_regex(r"[1-9][0-9]*|0")
 	}
 
 	pub fn match_signed_integer(&mut self) -> Result<&str> {
-		println!("match_signed_integer | source:{}", self.source);
 		self.match_regex(r"[+-]?[1-9][0-9]*|0")
 	}
 
@@ -496,6 +480,8 @@ impl ParserMultipleChoice<'_, '_, String> {
 
 #[cfg(test)]
 mod tests {
+	use velcro::hash_map;
+
 	use super::*;
 
 	#[test]
@@ -557,6 +543,8 @@ mod tests {
 
 	#[test]
 	fn test_parse_substitution() -> Result<()> {
+		// assert_eq!("{ X -> ?1, Y -> ?1, Z -> ?2 }".parse_as::<Substitution>(), hash_map!());
+
 		Ok(())
 	}
 

@@ -1,13 +1,13 @@
-use std::{fmt};
+use std::fmt;
 
-use anyhow::{Result};
+use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 
 use crate::{
 	ast::{Fact, Functor, Identifier},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
-	parser::{Parsable},
+	parser::Parsable,
 	subst::StaticMapping,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
