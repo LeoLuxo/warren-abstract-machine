@@ -184,18 +184,18 @@ mod tests {
 		// #[rustfmt::skip]
 		// assert_eq!(
 		// 	"p(Z, h(Z,W), f(W))"
-		// 		.parse::<Fact>()?
+		// 		.parse_as::<Fact>()?
 		// 		.compile_as_query()?.instructions,
 		// 	vec![
-		// 		L1Instruction::PutStructure("h/2".parse_as()?, 3_usize.into() ),
-		// 		L1Instruction::SetVariable(2_usize.into()),
-		// 		L1Instruction::SetVariable(5_usize.into()),
-		// 		L1Instruction::PutStructure("f/1".parse_as()?, 4_usize.into() ),
-		// 		L1Instruction::SetValue(5_usize.into()),
-		// 		L1Instruction::PutStructure("p/3".parse_as()?, 1_usize.into() ),
-		// 		L1Instruction::SetValue(2_usize.into()),
-		// 		L1Instruction::SetValue(3_usize.into()),
-		// 		L1Instruction::SetValue(4_usize.into()),
+		// 		L1Instruction::PutStructure("h/2".parse_as()?, "X3".parse_as()?),
+		// 		L1Instruction::SetVariable("X2".parse_as()?),
+		// 		L1Instruction::SetVariable("X5".parse_as()?),
+		// 		L1Instruction::PutStructure("f/1".parse_as()?, "X4".parse_as()?),
+		// 		L1Instruction::SetValue("X5".parse_as()?),
+		// 		L1Instruction::PutStructure("p/3".parse_as()?, "X1".parse_as()?),
+		// 		L1Instruction::SetValue("X2".parse_as()?),
+		// 		L1Instruction::SetValue("X3".parse_as()?),
+		// 		L1Instruction::SetValue("X4".parse_as()?),
 		// 	]
 		// );
 

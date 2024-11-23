@@ -7,7 +7,7 @@ use crate::{
 	subst::{ScopedVariable, SubstTerm, Substitution, VariableContext},
 };
 
-use super::{Parsable, Parser, Separator};
+use super::{parser_sequence::Separator, Parsable, Parser};
 
 /*
 --------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ impl Parsable for ScopedVariable {
 impl Parsable for Clauses {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		parser
-			.match_sequence_by_type::<Clause>(Separator::MultipleLinebreaks, None)
+			.match_sequence_by_type::<Clause>(Separator::Linebreaks, None)
 			.map(Into::into)
 	}
 }

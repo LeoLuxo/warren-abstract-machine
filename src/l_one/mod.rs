@@ -7,7 +7,7 @@ use crate::{
 	ast::{Fact, Functor, Identifier},
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
-	parser::{Parsable, Parser, Separator},
+	parser::{parser_sequence::Separator, Parsable, Parser},
 	subst::StaticMapping,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
@@ -147,7 +147,7 @@ impl Facts {
 
 impl Parsable for Facts {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		let facts = parser.match_sequence_by_type::<Fact>(Separator::MultipleLinebreaks, None)?;
+		let facts = parser.match_sequence_by_type::<Fact>(Separator::Linebreaks, None)?;
 
 		Ok(Self(facts))
 	}
