@@ -174,7 +174,7 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_any_whitespace(&mut self) -> Result<()> {
-		let old_trim = mem::replace(&mut (self.trim_whitespace, self.trim_newlines), (false, false));
+		let old_trim = std::mem::take(&mut (self.trim_whitespace, self.trim_newlines));
 
 		let result = self.match_regex(r"\s+").map(|_| ());
 
@@ -365,6 +365,31 @@ impl ParserDisjunction<'_, '_, ()> {
 	#[inline]
 	pub fn or_token(self, token: &str) -> Self {
 		self.or_with(|p| p.match_string(token))
+	}
+
+	#[inline]
+	pub fn or_separator(self, separator: Separator) -> Self {
+		self.or_with(|p| p.match_separator(separator))
+	}
+
+	#[inline]
+	pub fn or_horizontal_whitespace(self) -> Self {
+		self.or_with(|p| p.match_horizontal_whitespace())
+	}
+
+	#[inline]
+	pub fn or_any_whitespace(self) -> Self {
+		self.or_with(|p| p.match_any_whitespace())
+	}
+
+	#[inline]
+	pub fn or_single_linebreak(self) -> Self {
+		self.or_with(|p| p.match_single_linebreak())
+	}
+
+	#[inline]
+	pub fn or_multiple_linebreaks(self) -> Self {
+		self.or_with(|p| p.match_multiple_linebreaks())
 	}
 }
 
