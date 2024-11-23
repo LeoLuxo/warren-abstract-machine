@@ -19,17 +19,14 @@ pub enum Separator<'a> {
 }
 
 impl<'source> Parser<'source> {
+	#[rustfmt::skip]
 	pub fn match_separator(&mut self, separator: Separator) -> Result<()> {
 		match separator {
-			Separator::Whitespace => self.match_horizontal_whitespace(),
-
-			Separator::AnyWhitespace => self.match_any_whitespace(),
-
+			Separator::Whitespace      => self.match_horizontal_whitespace(),
+			Separator::AnyWhitespace   => self.match_any_whitespace(),
 			Separator::SingleLinebreak => self.match_single_linebreak(),
-
-			Separator::Linebreaks => self.match_multiple_linebreaks(),
-
-			Separator::String(str) => self.match_string(str),
+			Separator::Linebreaks      => self.match_multiple_linebreaks(),
+			Separator::String(str)     => self.match_string(str),
 		}
 	}
 
@@ -83,12 +80,10 @@ impl<'source> Parser<'source> {
 		})();
 
 		if result.is_err() {
-			// If an error occurs while matching the sequence, rollback the source string
+			// If any error occurs while matching the sequence, rollback the source string
 			self.rewind_checkpoint();
 		}
 		self.pop_checkpoint();
-
-		// Restore settings
 
 		result
 	}
