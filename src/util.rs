@@ -32,6 +32,11 @@ impl<T: Ord> Sorted for Vec<T> {
 
 #[macro_export]
 macro_rules! static_regex {
+	(^ $regex:expr) => {{
+		// Forces the regex to match the beginning of the string, more convenient than putting this pattern in all my regexes
+		static_regex!(&format!(r"\A(?:{})", $regex))
+	}};
+
 	($regex:expr) => {{
 		// This would be even shorter using LazyLock, but the feature is still unstable
 		const RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
@@ -39,12 +44,12 @@ macro_rules! static_regex {
 	}};
 }
 
-#[macro_export]
-macro_rules! regex_force_beginning {
-	($regex:expr) => {{
-		&format!(r"\A(?:{})", $regex)
-	}};
-}
+// #[macro_export]
+// macro_rules! regex_force_beginning {
+// 	($regex:expr) => {{
+// 		&format!(r"\A(?:{})", $regex)
+// 	}};
+// }
 
 #[macro_export]
 macro_rules! indent {

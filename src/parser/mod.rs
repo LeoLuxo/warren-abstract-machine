@@ -1,7 +1,9 @@
+use std::mem;
+
 use anyhow::{bail, ensure, Context, Ok, Result};
 use regex::Regex;
 
-use crate::{regex_force_beginning, static_regex};
+use crate::static_regex;
 
 /*
 --------------------------------------------------------------------------------
@@ -30,7 +32,10 @@ where
 
 pub struct Parser<'source> {
 	source: &'source str,
-	checkpoints: Vec<&'source str>,
+	checkpoint_stack: Vec<&'source str>,
+
+	pub trim_whitespace: bool,
+	pub trim_newlines: bool,
 }
 
 /*
@@ -43,7 +48,9 @@ impl<'source> Parser<'source> {
 	pub fn new(source: &'source str) -> Self {
 		Self {
 			source,
-			checkpoints: Default::default(),
+			checkpoint_stack: Vec::new(),
+			trim_whitespace: true,
+			trim_newlines: true,
 		}
 	}
 
@@ -56,30 +63,49 @@ impl<'source> Parser<'source> {
 	}
 
 	fn push_checkpoint(&mut self) {
-		self.checkpoints.push(self.source);
+		self.checkpoint_stack.push(self.source);
 	}
 
 	fn rewind_checkpoint(&mut self) {
 		self.source = self
-			.checkpoints
+			.checkpoint_stack
 			.last()
 			.expect("Tried to rewind to checkpoint, but no checkpoint available")
 	}
 
 	fn pop_checkpoint(&mut self) {
-		self.checkpoints.pop();
+		self.checkpoint_stack.pop();
 	}
 
-	fn trim_offset(&mut self, length: usize) {
+	fn advance_source_by(&mut self, length: usize) {
 		self.source = &self.source[length..];
 	}
 
-	fn trim_whitespace(&mut self) {
-		self.source = self.source.trim_start()
+	fn auto_trim(&mut self) {
+		match (self.trim_whitespace, self.trim_newlines) {
+			(true, true) => {
+				self.source = self.source.trim_start();
+			}
+
+			(true, false) => {
+				self.advance_source_by(static_regex!(^ r"[^\S\r\n]*").find_at(self.source, 0).unwrap().end());
+			}
+
+			(false, true) => {
+				self.advance_source_by(
+					static_regex!(^ r"(?:\r\n|\r|\n)*")
+						.find_at(self.source, 0)
+						.unwrap()
+						.end(),
+				);
+			}
+
+			_ => {}
+		}
 	}
 
 	pub fn match_end(&mut self) -> Result<()> {
-		self.trim_whitespace();
+		self.auto_trim();
 
 		if !self.source.is_empty() {
 			bail!("End not matched, found '{}'", self.source)
@@ -88,22 +114,22 @@ impl<'source> Parser<'source> {
 		Ok(())
 	}
 
-	pub fn match_token(&mut self, token: &str) -> Result<()> {
-		self.trim_whitespace();
+	pub fn match_string(&mut self, string: &str) -> Result<()> {
+		self.auto_trim();
 
-		if !self.source.starts_with(token) {
-			bail!("Token '{}' not matched, found '{}'", token, self.source)
+		if !self.source.starts_with(string) {
+			bail!("String '{}' not matched, found '{}'", string, self.source)
 		}
 
-		self.trim_offset(token.len());
+		self.advance_source_by(string.len());
 
 		Ok(())
 	}
 
 	pub fn match_regex(&mut self, regex: &str) -> Result<&str> {
-		self.trim_whitespace();
+		self.auto_trim();
 
-		let re_match = static_regex!(regex_force_beginning!(regex))
+		let re_match = static_regex!(^ regex)
 			// .is_match_at(&self.source, 0)
 			.find_at(self.source, 0)
 			.context(format!(
@@ -111,15 +137,15 @@ impl<'source> Parser<'source> {
 				regex, self.source
 			))?;
 
-		self.trim_offset(re_match.end());
+		self.advance_source_by(re_match.end());
 
 		Ok(re_match.as_str())
 	}
 
 	pub fn match_regex_captures<const N: usize>(&mut self, regex: &str) -> Result<[&str; N]> {
-		self.trim_whitespace();
+		self.auto_trim();
 
-		let (full_match, captures) = static_regex!(regex_force_beginning!(regex))
+		let (full_match, captures) = static_regex!(^ regex)
 			.captures_at(self.source, 0)
 			.context(format!(
 				"Regex pattern '{}' not matched, found '{}'",
@@ -127,71 +153,51 @@ impl<'source> Parser<'source> {
 			))?
 			.extract::<{ N }>();
 
-		self.trim_offset(full_match.len());
+		self.advance_source_by(full_match.len());
 
 		Ok(captures)
 	}
 
 	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
-		self.trim_whitespace();
+		self.auto_trim();
 
 		<T as Parsable>::parser_match(self)
 	}
 
-	pub fn match_sequence_by_type<T: Parsable>(&mut self, separator: &str, minimum: Option<usize>) -> Result<Vec<T>> {
-		self.match_sequence_with(separator, minimum, |p| p.match_type::<T>())
-	}
+	pub fn match_horizontal_whitespace(&mut self) -> Result<()> {
+		let old_trim = mem::replace(&mut self.trim_whitespace, false);
 
-	pub fn match_sequence_with<T>(
-		&mut self,
-		separator: &str,
-		minimum: Option<usize>,
-		inner_fn: impl Fn(&mut Self) -> Result<T>,
-	) -> Result<Vec<T>> {
-		self.push_checkpoint();
+		let result = self.match_regex(r"[^\S\r\n]+").map(|_| ());
 
-		let result = self.match_sequence_with_unchecked(separator, minimum, inner_fn);
-
-		// If an error occurs while matching the sequence, rollback the source string
-		if result.is_err() {
-			self.rewind_checkpoint();
-		}
-
-		self.pop_checkpoint();
+		self.trim_whitespace = old_trim;
 		result
 	}
 
-	fn match_sequence_with_unchecked<T>(
-		&mut self,
-		separator: &str,
-		minimum: Option<usize>,
-		inner_fn: impl Fn(&mut Self) -> Result<T>,
-	) -> Result<Vec<T>> {
-		let mut result = Vec::new();
+	pub fn match_any_whitespace(&mut self) -> Result<()> {
+		let old_trim = mem::replace(&mut (self.trim_whitespace, self.trim_newlines), (false, false));
 
-		loop {
-			let inner = inner_fn(self);
+		let result = self.match_regex(r"\s+").map(|_| ());
 
-			if let Result::Ok(r) = inner {
-				result.push(r);
-			} else {
-				break;
-			}
+		(self.trim_whitespace, self.trim_newlines) = old_trim;
+		result
+	}
 
-			// Optionally match the separator
-			let _ = self.match_token(separator);
-		}
+	pub fn match_single_linebreak(&mut self) -> Result<()> {
+		let old_trim = mem::replace(&mut self.trim_newlines, false);
 
-		if let Some(min) = minimum {
-			ensure!(
-				result.len() >= min,
-				"Matched only {} element(s) in the sequence, expected at least {}",
-				result.len(),
-				min
-			);
-		}
+		let result = self.match_regex(r"(?:\r\n|\r|\n)").map(|_| ());
 
-		Ok(result)
+		self.trim_newlines = old_trim;
+		result
+	}
+
+	pub fn match_multiple_linebreaks(&mut self) -> Result<()> {
+		let old_trim = mem::replace(&mut self.trim_newlines, false);
+
+		let result = self.match_regex(r"(?:\r\n|\r|\n)+").map(|_| ());
+
+		self.trim_newlines = old_trim;
+		result
 	}
 
 	pub fn match_identifier(&mut self) -> Result<&str> {
@@ -212,6 +218,98 @@ impl<'source> Parser<'source> {
 
 	pub fn match_signed_integer(&mut self) -> Result<&str> {
 		self.match_regex(r"[+-]?[1-9][0-9]*|0")
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum Separator<'a> {
+	#[default]
+	Whitespace,
+	AnyWhitespace,
+	SingleLinebreak,
+	MultipleLinebreaks,
+	String(&'a str),
+}
+
+impl<'source> Parser<'source> {
+	pub fn match_separator(&mut self, separator: Separator) -> Result<()> {
+		match separator {
+			Separator::Whitespace => self.match_horizontal_whitespace(),
+
+			Separator::AnyWhitespace => self.match_any_whitespace(),
+
+			Separator::SingleLinebreak => self.match_single_linebreak(),
+
+			Separator::MultipleLinebreaks => self.match_multiple_linebreaks(),
+
+			Separator::String(str) => self.match_string(str),
+		}
+	}
+
+	pub fn match_sequence_by_type<T: Parsable>(
+		&mut self,
+		separator: Separator,
+		minimum: Option<usize>,
+	) -> Result<Vec<T>> {
+		self.match_sequence_with(separator, minimum, |p| p.match_type::<T>())
+	}
+
+	pub fn match_sequence_with<T>(
+		&mut self,
+		separator: Separator,
+		minimum: Option<usize>,
+		inner_fn: impl Fn(&mut Self) -> Result<T>,
+	) -> Result<Vec<T>> {
+		self.push_checkpoint();
+
+		// Workaround for try{} blocks until they arrive in stable rust
+		let result = (|| {
+			let mut sequence = Vec::new();
+
+			loop {
+				// Match the inner element
+				let element = inner_fn(self);
+
+				if let Result::Ok(e) = element {
+					sequence.push(e);
+				} else {
+					break;
+				}
+
+				// Match the separator
+				if self.match_separator(separator).is_err() {
+					// If the separator didn't match, break peacefully (ie. we're done finding elements but we get to keep the ones we have)
+					break;
+				}
+			}
+
+			if let Some(min) = minimum {
+				ensure!(
+					sequence.len() >= min,
+					"Matched only {} element(s) in the sequence, expected at least {}",
+					sequence.len(),
+					min
+				);
+			}
+
+			Ok(sequence)
+		})();
+
+		if result.is_err() {
+			// If an error occurs while matching the sequence, rollback the source string
+			self.rewind_checkpoint();
+		}
+		self.pop_checkpoint();
+
+		// Restore settings
+
+		result
 	}
 }
 
@@ -242,7 +340,7 @@ impl<'source, 'parser, T> ParserDisjunction<'source, 'parser, T> {
 	}
 
 	#[inline]
-	pub fn end(self) -> Result<T> {
+	pub fn finish(self) -> Result<T> {
 		self.parser.pop_checkpoint();
 		self.result.context("All arms of the disjunction failed")
 	}
@@ -266,7 +364,7 @@ impl ParserDisjunction<'_, '_, ()> {
 
 	#[inline]
 	pub fn or_token(self, token: &str) -> Self {
-		self.or_with(|p| p.match_token(token))
+		self.or_with(|p| p.match_string(token))
 	}
 }
 

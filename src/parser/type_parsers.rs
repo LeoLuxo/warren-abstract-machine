@@ -7,7 +7,7 @@ use crate::{
 	subst::{ScopedVariable, SubstTerm, Substitution, VariableContext},
 };
 
-use super::{Parsable, Parser};
+use super::{Parsable, Parser, Separator};
 
 /*
 --------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ use super::{Parsable, Parser};
 
 impl Parsable for VarRegister {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.disjunction().or_token("X").or_token("A").end()?;
+		parser.disjunction().or_token("X").or_token("A").finish()?;
 
 		let reg = parser.match_integer()?.parse::<usize>()?;
 
@@ -28,7 +28,7 @@ impl Parsable for VarRegister {
 impl Parsable for Functor {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let name = parser.match_identifier()?.to_owned().into();
-		parser.match_token("/")?;
+		parser.match_string("/")?;
 		let arity = parser.match_integer()?.parse()?;
 
 		Ok(Self { name, arity })
@@ -37,19 +37,19 @@ impl Parsable for Functor {
 
 impl Parsable for Substitution {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_token("{")?;
+		parser.match_string("{")?;
 
-		let elems = parser.match_sequence_with(",", None, |p| {
+		let elems = parser.match_sequence_with(Separator::String(","), None, |p| {
 			let var = p.match_type::<Variable>()?.into();
 
-			p.match_token("->")?;
+			p.match_string("->")?;
 
 			let subst_term = p.match_type::<SubstTerm>()?;
 
 			Ok((var, subst_term))
 		})?;
 
-		parser.match_token("}")?;
+		parser.match_string("}")?;
 
 		Ok(elems.into_iter().collect())
 	}
@@ -63,13 +63,13 @@ impl Parsable for SubstTerm {
 			.or_type::<AnonymousIdentifier>()
 			.or_type::<Variable>()
 			.or_type::<Constant>()
-			.end()
+			.finish()
 	}
 }
 
 impl Parsable for AnonymousIdentifier {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_token("?")?;
+		parser.match_string("?")?;
 		let id = parser.match_integer()?.parse::<u32>()?;
 
 		Ok(id.into())
@@ -80,9 +80,9 @@ impl Parsable for ScopedVariable {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let variable = parser.match_type::<Variable>()?;
 
-		let context = if parser.match_token("<").is_ok() {
+		let context = if parser.match_string("<").is_ok() {
 			let ctx = parser.match_identifier()?.to_owned().into();
-			parser.match_token(">")?;
+			parser.match_string(">")?;
 			VariableContext::Local(ctx)
 		} else {
 			VariableContext::Query
@@ -100,20 +100,22 @@ impl Parsable for ScopedVariable {
 
 impl Parsable for Clauses {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence_by_type::<Clause>("\n", None).map(Into::into)
+		parser
+			.match_sequence_by_type::<Clause>(Separator::MultipleLinebreaks, None)
+			.map(Into::into)
 	}
 }
 
 impl Parsable for Clause {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.disjunction().or_type::<Fact>().or_type::<Rule>().end()
+		parser.disjunction().or_type::<Fact>().or_type::<Rule>().finish()
 	}
 }
 
 impl Parsable for Fact {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let atom = parser.match_type::<Atom>()?;
-		parser.match_token(".")?;
+		parser.match_string(".")?;
 
 		Ok(Self(atom))
 	}
@@ -122,9 +124,11 @@ impl Parsable for Fact {
 impl Parsable for Rule {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let head = parser.match_type::<Atom>()?;
-		parser.match_token(":-")?;
-		let body = parser.match_sequence_by_type::<Atom>(",", Some(1))?.into();
-		parser.match_token(".")?;
+		parser.match_string(":-")?;
+		let body = parser
+			.match_sequence_by_type::<Atom>(Separator::String(","), Some(1))?
+			.into();
+		parser.match_string(".")?;
 
 		Ok(Self { head, body })
 	}
@@ -132,16 +136,20 @@ impl Parsable for Rule {
 
 impl Parsable for Atoms {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence_by_type::<Atom>(",", None).map(Into::into)
+		parser
+			.match_sequence_by_type::<Atom>(Separator::String(","), None)
+			.map(Into::into)
 	}
 }
 
 impl Parsable for Atom {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let name = parser.match_identifier()?.to_owned().into();
-		parser.match_token("(")?;
-		let terms = parser.match_sequence_by_type::<Term>(",", Some(1))?.into();
-		parser.match_token(")")?;
+		parser.match_string("(")?;
+		let terms = parser
+			.match_sequence_by_type::<Term>(Separator::String(","), Some(1))?
+			.into();
+		parser.match_string(")")?;
 
 		Ok(Self { name, terms })
 	}
@@ -149,7 +157,9 @@ impl Parsable for Atom {
 
 impl Parsable for Terms {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		parser.match_sequence_by_type::<Term>(",", None).map(Into::into)
+		parser
+			.match_sequence_by_type::<Term>(Separator::String(","), None)
+			.map(Into::into)
 	}
 }
 
@@ -160,16 +170,18 @@ impl Parsable for Term {
 			.or_type::<Structure>()
 			.or_type::<Variable>()
 			.or_type::<Constant>()
-			.end()
+			.finish()
 	}
 }
 
 impl<T: Parsable> Parsable for Structure<T> {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let name = parser.match_identifier()?.to_owned().into();
-		parser.match_token("(")?;
-		let arguments = parser.match_sequence_by_type::<T>(",", Some(1))?.into();
-		parser.match_token(")")?;
+		parser.match_string("(")?;
+		let arguments = parser
+			.match_sequence_by_type::<T>(Separator::String(","), Some(1))?
+			.into();
+		parser.match_string(")")?;
 
 		Ok(Self { name, arguments })
 	}
@@ -181,7 +193,7 @@ impl Parsable for Constant {
 			.disjunction()
 			.or_signed_integer()
 			.or_lowercase_identifier()
-			.end()?;
+			.finish()?;
 
 		Ok(Self(constant.into()))
 	}
@@ -378,6 +390,8 @@ mod tests {
 		assert!("(1)".parse_as::<Term>().is_err());
 		assert!("(1,)".parse_as::<Term>().is_err());
 		assert!("(1,3)".parse_as::<Term>().is_err());
+		assert!("f(1 2)".parse_as::<Term>().is_err());
+		assert!("f(1\n2)".parse_as::<Term>().is_err());
 	}
 
 	#[test]
