@@ -101,17 +101,19 @@ impl fmt::Display for L1Instruction {
 }
 
 impl StaticMapping for L1Instruction {
+	#[rustfmt::skip]
 	fn static_heap_size(&self) -> Option<HeapAddress> {
 		match self {
+			L1Instruction::Proceed            => Some(0),
+			
 			L1Instruction::PutStructure(_, _) => Some(2),
-			L1Instruction::SetVariable(_) => Some(1),
-			L1Instruction::SetValue(_) => Some(1),
+			L1Instruction::SetVariable(_)     => Some(1),
+			L1Instruction::SetValue(_)        => Some(1),
 
-			L1Instruction::Proceed => Some(0),
-			L1Instruction::PutVariable(_, _) => Some(1),
-			L1Instruction::PutValue(_, _) => Some(0),
-			L1Instruction::GetVariable(_, _) => Some(0),
-			L1Instruction::GetValue(_, _) => Some(0),
+			L1Instruction::PutVariable(_, _)  => Some(1),
+			L1Instruction::PutValue(_, _)     => Some(0),
+			L1Instruction::GetVariable(_, _)  => Some(0),
+			L1Instruction::GetValue(_, _)     => Some(0),
 
 			_ => None,
 		}

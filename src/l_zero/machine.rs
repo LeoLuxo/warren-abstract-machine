@@ -5,7 +5,7 @@ use derive_more::derive::Display;
 
 use crate::{
 	anonymous::AnonymousIdGenerator,
-	ast::{Functor},
+	ast::Functor,
 	enumerate, indent,
 	machine_types::{Cell, Heap, HeapAddress, ReadWrite, VarRegister, VarRegisters},
 	subst::{self, ExtractSubstitution, SubstTerm},
