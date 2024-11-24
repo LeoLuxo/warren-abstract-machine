@@ -155,8 +155,8 @@ mod tests {
 
 	#[test]
 	fn test_compile_program() -> Result<()> {
-		// The wambook has the last getvalue X5,A3 3 instructions earlier,
-		// I posit that this variation doesn't change the validity of the instruction sequence
+		// The wambook has the last getvalue X5,A3 earlier (before get_structure f/1);
+		// I conjecture that this variation doesn't change the validity of the instruction sequence
 		assert_eq!(
 			"p(f(X), h(Y, f(a)), Y)."
 				.parse_as::<Facts>()?
@@ -174,6 +174,37 @@ mod tests {
 				L1Instruction::GetValue("X5".parse_as()?, "A3".parse_as()?),
 				L1Instruction::Proceed
 			]
+		);
+
+		assert_eq!(
+			{
+				let Compiled {
+					instructions,
+					var_reg_mapping: _,
+					labels,
+				} = "a(const). b(const). c(const). d(const)."
+					.parse_as::<Facts>()?
+					.compile_as_program()?;
+				(instructions, labels)
+			},
+			(
+				vec![
+					L1Instruction::GetStructure("const/0".parse_as()?, "A1".parse_as()?),
+					L1Instruction::Proceed,
+					L1Instruction::GetStructure("const/0".parse_as()?, "A1".parse_as()?),
+					L1Instruction::Proceed,
+					L1Instruction::GetStructure("const/0".parse_as()?, "A1".parse_as()?),
+					L1Instruction::Proceed,
+					L1Instruction::GetStructure("const/0".parse_as()?, "A1".parse_as()?),
+					L1Instruction::Proceed,
+				],
+				hash_map!(
+					"a/1".into(): 0.into(),
+					"b/1".into(): 2.into(),
+					"c/1".into(): 4.into(),
+					"d/1".into(): 6.into(),
+				)
+			)
 		);
 
 		Ok(())

@@ -5,10 +5,10 @@ use derive_more::derive::Display;
 
 use crate::{
 	anonymous::AnonymousIdGenerator,
-	ast::{Constant, Functor, Structure},
+	ast::{Functor},
 	enumerate, indent,
-	machine_types::{Heap, HeapAddress, VarRegister, VarRegisters},
-	subst::{ExtractSubstitution, SubstTerm},
+	machine_types::{Cell, Heap, HeapAddress, ReadWrite, VarRegister, VarRegisters},
+	subst::{self, ExtractSubstitution, SubstTerm},
 };
 
 use super::{L0Instruction, L0};
@@ -34,24 +34,6 @@ enum MachineAddress {
 #[rustfmt::skip] impl Sub<usize> for MachineAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { MachineAddress::Register(var_register) => MachineAddress::Register(var_register - rhs), MachineAddress::Heap(heap_address) => MachineAddress::Heap(heap_address - rhs), } } }
 #[rustfmt::skip] impl AddAssign<usize> for MachineAddress { fn add_assign(&mut self, rhs: usize)  {  match self { MachineAddress::Register(var_register) => *var_register += rhs, MachineAddress::Heap(heap_address) => *heap_address += rhs, } } }
 #[rustfmt::skip] impl SubAssign<usize> for MachineAddress { fn sub_assign(&mut self, rhs: usize)  {  match self { MachineAddress::Register(var_register) => *var_register -= rhs, MachineAddress::Heap(heap_address) => *heap_address -= rhs, } } }
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Display)]
-enum Cell {
-	#[display("REF {}", _0)]
-	REF(HeapAddress),
-
-	#[display("STR {}", _0)]
-	STR(HeapAddress),
-
-	Functor(Functor),
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display)]
-enum ReadWrite {
-	#[default]
-	Read,
-	Write,
-}
 
 /*
 --------------------------------------------------------------------------------
@@ -220,42 +202,12 @@ impl M0 {
 --------------------------------------------------------------------------------
 */
 
-fn extract_heap(
-	heap: &Heap<Cell>,
-	address: HeapAddress,
-	anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
-	iterations: u32,
-) -> Result<SubstTerm> {
-	match &heap[address] {
-		_ if iterations > heap.len() as u32 => {
-			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
-		}
-
-		Cell::REF(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
-		Cell::STR(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
-
-		Cell::REF(a) => Ok(SubstTerm::Unbound(anon_gen.get_identifier(*a))),
-
-		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
-
-		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
-			name: name.clone(),
-			arguments: (1..=*arity)
-				.map(|i| extract_heap(heap, address + i, anon_gen, iterations + 1))
-				.collect::<Result<Vec<_>>>()?
-				.into(),
-		})),
-
-		_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
-	}
-}
-
 impl ExtractSubstitution<L0> for M0 {
 	fn extract_heap(
 		&self,
 		address: HeapAddress,
 		anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
 	) -> Result<SubstTerm> {
-		extract_heap(&self.heap, address, anon_gen, 0)
+		subst::extract_heap(&self.heap, address, anon_gen, 0)
 	}
 }

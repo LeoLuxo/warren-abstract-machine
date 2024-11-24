@@ -11,6 +11,7 @@ use super::{Parsable, Parser};
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum Separator<'a> {
 	#[default]
+	None,
 	Whitespace,
 	AnyWhitespace,
 	SingleLinebreak,
@@ -22,6 +23,7 @@ impl<'source> Parser<'source> {
 	#[rustfmt::skip]
 	pub fn match_separator(&mut self, separator: Separator) -> Result<()> {
 		match separator {
+			Separator::None            => Ok(()),
 			Separator::Whitespace      => self.match_horizontal_whitespace(),
 			Separator::AnyWhitespace   => self.match_any_whitespace(),
 			Separator::SingleLinebreak => self.match_single_linebreak(),

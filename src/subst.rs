@@ -1,11 +1,11 @@
 use crate::{
 	anonymous::{AnonymousEq, AnonymousIdGenerator, AnonymousIdentifier},
-	ast::{Constant, Identifier, Structure, Variable},
+	ast::{Constant, Functor, Identifier, Structure, Variable},
 	display_map,
-	machine_types::{HeapAddress, VarRegister},
+	machine_types::{Cell, Heap, HeapAddress, VarRegister},
 	Language,
 };
-use anyhow::Result;
+use anyhow::{bail, Result};
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
 use std::{collections::HashMap, hash::Hash, mem};
@@ -241,6 +241,36 @@ where
 		}
 
 		Ok(substitution)
+	}
+}
+
+pub fn extract_heap(
+	heap: &Heap<Cell>,
+	address: HeapAddress,
+	anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
+	iterations: u32,
+) -> Result<SubstTerm> {
+	match &heap[address] {
+		_ if iterations > heap.len() as u32 => {
+			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
+		}
+
+		Cell::REF(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
+		Cell::STR(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
+
+		Cell::REF(a) => Ok(SubstTerm::Unbound(anon_gen.get_identifier(*a))),
+
+		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
+
+		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
+			name: name.clone(),
+			arguments: (1..=*arity)
+				.map(|i| extract_heap(heap, address + i, anon_gen, iterations + 1))
+				.collect::<Result<Vec<_>>>()?
+				.into(),
+		})),
+
+		_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
 	}
 }
 

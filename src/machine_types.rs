@@ -1,12 +1,36 @@
 use std::{
-	collections::{HashMap},
+	collections::HashMap,
 	fmt::Display,
 	ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
 use derive_more::derive::{Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign};
 
-use crate::{display_iter, display_map, Successor};
+use crate::{ast::Functor, display_iter, display_map, Successor};
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Display)]
+pub enum Cell {
+	#[display("REF {}", _0)]
+	REF(HeapAddress),
+
+	#[display("STR {}", _0)]
+	STR(HeapAddress),
+
+	Functor(Functor),
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Display)]
+pub enum ReadWrite {
+	#[default]
+	Read,
+	Write,
+}
 
 /*
 --------------------------------------------------------------------------------

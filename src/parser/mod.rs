@@ -1,5 +1,3 @@
-use std::mem;
-
 use anyhow::{bail, Context, Ok, Result};
 use regex::Regex;
 
@@ -167,7 +165,8 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_horizontal_whitespace(&mut self) -> Result<()> {
-		let old_trim = mem::replace(&mut self.trim_whitespace, false);
+		let old_trim = self.trim_whitespace;
+		self.trim_whitespace = false;
 
 		let result = self.match_regex(r"[^\S\r\n]+").map(|_| ());
 
@@ -176,7 +175,8 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_any_whitespace(&mut self) -> Result<()> {
-		let old_trim = std::mem::take(&mut (self.trim_whitespace, self.trim_newlines));
+		let old_trim = (self.trim_whitespace, self.trim_newlines);
+		(self.trim_whitespace, self.trim_newlines) = (false, false);
 
 		let result = self.match_regex(r"\s+").map(|_| ());
 
@@ -185,7 +185,8 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_single_linebreak(&mut self) -> Result<()> {
-		let old_trim = mem::replace(&mut self.trim_newlines, false);
+		let old_trim = self.trim_newlines;
+		self.trim_newlines = false;
 
 		let result = self.match_regex(r"(?:\r\n|\r|\n)").map(|_| ());
 
@@ -194,7 +195,8 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_multiple_linebreaks(&mut self) -> Result<()> {
-		let old_trim = mem::replace(&mut self.trim_newlines, false);
+		let old_trim = self.trim_newlines;
+		self.trim_newlines = false;
 
 		let result = self.match_regex(r"(?:\r\n|\r|\n)+").map(|_| ());
 

@@ -147,7 +147,7 @@ impl Facts {
 
 impl Parsable for Facts {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
-		let facts = parser.match_sequence_by_type::<Fact>(Separator::Linebreaks, None)?;
+		let facts = parser.match_sequence_by_type::<Fact>(Separator::None, None)?;
 
 		Ok(Self(facts))
 	}
