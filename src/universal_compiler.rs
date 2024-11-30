@@ -5,7 +5,7 @@ use std::{
 	ops::{Add, AddAssign},
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use derive_more::derive::{Display, From};
 use velcro::vec;
 
@@ -13,7 +13,7 @@ use crate::{
 	ast::{Functor, GetFunctor, Identifier, Term, Variable},
 	display_iter,
 	machine_types::{CodeAddress, VarRegister},
-	substitution::{self, StaticMapping, VarToHeapMapping, VarToRegMapping},
+	substitution::VarToRegMapping,
 	util::Successor,
 	Language,
 };
@@ -53,7 +53,7 @@ impl<L: Language> Default for Compiled<L> {
 
 impl<L: Language> Compiled<L> {
 	pub fn combined(self, other: Self) -> Self {
-		let label_offset = self.instructions.len().into();
+		let label_offset = self.instructions.len();
 
 		// self's instructions then other's instructions, in order
 		let instructions = vec![..self.instructions, ..other.instructions];
@@ -85,18 +85,6 @@ impl<L: Language> Compiled<L> {
 
 	pub fn combine(&mut self, other: Self) {
 		*self = mem::take(self).combined(other)
-	}
-
-	pub fn compute_var_heap_mapping(&self) -> Result<VarToHeapMapping>
-	where
-		<L as Language>::InstructionSet: StaticMapping,
-	{
-		substitution::compute_var_heap_mapping(
-			self.var_reg_mapping
-				.as_ref()
-				.context("Cannot compute var-heap mapping of compiled without a valid mapping")?,
-			&self.instructions,
-		)
 	}
 }
 

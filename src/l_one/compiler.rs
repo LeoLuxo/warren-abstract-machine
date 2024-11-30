@@ -42,7 +42,7 @@ impl CompilableProgram<L1> for Fact {
 		let fact_label = self.get_functor().as_identifier();
 
 		let order = FlatteningOrder::for_program();
-		let context = VariableContext::Local(fact_label.clone());
+		let context = VariableContext::Program(fact_label.clone());
 		let (tokens, var_mapping) = flatten_fact(self, order, context);
 
 		let mut instructions = compile_program_tokens(tokens);

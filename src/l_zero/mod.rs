@@ -6,9 +6,9 @@ use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	machine_types::{HeapAddress, VarRegister},
+	machine_types::VarRegister,
 	parser::{Parsable, Parser},
-	substitution::{ExtractSubstitution, StaticMapping},
+	substitution::{ExtractSubstitution, VarEntryPoint},
 	universal_compiler::{CompilableProgram, CompilableQuery, Compiled},
 	Interpreter, Language, Substitution,
 };
@@ -57,13 +57,10 @@ impl Interpreter<L0> for L0Interpreter {
 
 		let mut machine = M0::new();
 
-		let problem = compiled_query + self.compiled_program.clone();
+		let code = compiled_query + self.compiled_program.clone();
+		println!("{}", code);
 
-		machine.execute(&problem.instructions)?;
-
-		let solution = machine.extract_substitution(problem.compute_var_heap_mapping()?)?;
-
-		println!("{}", problem);
+		let solution = machine.execute_and_extract_substitution(code)?;
 		println!("{}", solution);
 
 		Ok(solution)
@@ -101,21 +98,10 @@ impl fmt::Display for L0Instruction {
 	}
 }
 
-impl StaticMapping for L0Instruction {
-	fn static_heap_size(&self) -> Option<HeapAddress> {
+impl VarEntryPoint for L0Instruction {
+	fn is_variable_entry_point(&self) -> Option<(VarRegister, Self)> {
 		match self {
-			L0Instruction::PutStructure(_, _) => Some(2),
-			L0Instruction::SetVariable(_) => Some(1),
-			L0Instruction::SetValue(_) => Some(1),
-
-			_ => None,
-		}
-		.map(Into::into)
-	}
-
-	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress> {
-		match self {
-			L0Instruction::SetVariable(reg) if reg == register => Some(pre_heap_top),
+			L0Instruction::SetVariable(reg) => Some((*reg, L0Instruction::SetValue(*reg))),
 
 			_ => None,
 		}

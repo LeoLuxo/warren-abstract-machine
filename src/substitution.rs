@@ -3,12 +3,15 @@ use crate::{
 	ast::{Constant, Functor, Identifier, Structure, Variable},
 	display_map,
 	machine_types::{Cell, Heap, HeapAddress, VarRegister},
+	universal_compiler::Compiled,
 	Language,
 };
 use anyhow::{bail, Result};
+use bimap::BiHashMap;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
 use std::{collections::HashMap, hash::Hash, mem};
+use velcro::vec;
 
 /*
 --------------------------------------------------------------------------------
@@ -20,13 +23,13 @@ use std::{collections::HashMap, hash::Hash, mem};
 pub enum VariableContext {
 	#[default]
 	Query,
-	Local(Identifier),
+	Program(Identifier),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display("{}", match context { 
-	VariableContext::Query             => format!("{}", variable),
-	VariableContext::Local(identifier) => format!("{}<{}>", variable, identifier)
+	VariableContext::Query               => format!("{}", variable),
+	VariableContext::Program(identifier) => format!("{}<{}>", variable, identifier)
 })]
 pub struct ScopedVariable {
 	context: VariableContext,
@@ -68,7 +71,7 @@ impl From<ScopedVariable> for Variable {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
 #[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(HashMap<ScopedVariable, VarRegister>);
+pub struct VarToRegMapping(BiHashMap<ScopedVariable, VarRegister>);
 
 impl VarToRegMapping {
 	pub fn filter_by_context(&mut self, context: VariableContext) {
@@ -96,13 +99,13 @@ impl VarToRegMapping {
 
 impl FromIterator<(ScopedVariable, VarRegister)> for VarToRegMapping {
 	fn from_iter<T: IntoIterator<Item = (ScopedVariable, VarRegister)>>(iter: T) -> Self {
-		HashMap::from_iter(iter).into()
+		BiHashMap::from_iter(iter).into()
 	}
 }
 
 impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
 	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
-		HashMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
+		BiHashMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
 	}
 }
 
@@ -137,9 +140,87 @@ impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
 --------------------------------------------------------------------------------
 */
 
-pub trait StaticMapping {
-	fn static_heap_size(&self) -> Option<HeapAddress>;
-	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress>;
+pub trait VarEntryPoint
+where
+	Self: Sized,
+{
+	fn is_variable_entry_point(&self) -> Option<(VarRegister, Self)>;
+}
+
+pub trait StaticallyAnalysable
+where
+	Self: Sized,
+{
+	fn to_statically_analysable(self) -> (Self, VarToHeapMapping);
+}
+
+impl<L> StaticallyAnalysable for Compiled<L>
+where
+	L: Language,
+	L::InstructionSet: VarEntryPoint + Clone,
+	Self: Clone,
+{
+	fn to_statically_analysable(self) -> (Compiled<L>, VarToHeapMapping) {
+		let mut var_heap_mapping = VarToHeapMapping::default();
+		let mut new_instructions_front = Vec::new();
+		let mut new_instructions_back = Vec::new();
+
+		let Some(var_reg_mapping) = self.var_reg_mapping else {
+			return (self, var_heap_mapping);
+		};
+
+		let Compiled {
+			instructions,
+			var_reg_mapping: _,
+			labels,
+		} = self;
+
+		for instruction in instructions {
+			if let Some((reg, non_entry_point_inst)) = instruction.is_variable_entry_point() {
+				if let Some(ScopedVariable {
+					context: VariableContext::Query,
+					variable,
+				}) = var_reg_mapping.get_by_right(&reg)
+				{
+					// If the current instruction is an entry point for a variable and is a QUERY variable present in the variable-register-mapping,
+					// Then remember it's current spot in the instruction sequence as its heap address
+					let var_heap_address = new_instructions_front.len().into();
+					var_heap_mapping.insert(
+						ScopedVariable::new(variable.clone(), VariableContext::Query),
+						var_heap_address,
+					);
+
+					// And add it at the front of the code
+					new_instructions_front.push(instruction);
+					// and add its non-entry-point alternative instruction in the back (which will read the heap address of the first assignment at the front)
+					new_instructions_back.push(non_entry_point_inst);
+
+					continue;
+				}
+			}
+
+			// Otherwise, just keep the instruction as-is
+			new_instructions_back.push(instruction);
+		}
+
+		let label_offset = new_instructions_front.len();
+
+		let new_instructions = vec![..new_instructions_front, ..new_instructions_back];
+
+		let new_labels = labels
+			.into_iter()
+			.map(|(ident, addr)| (ident, addr + label_offset))
+			.collect::<HashMap<_, _>>();
+
+		(
+			Self {
+				instructions: new_instructions,
+				labels: new_labels,
+				var_reg_mapping: Some(var_reg_mapping),
+			},
+			var_heap_mapping,
+		)
+	}
 }
 
 #[derive(Clone, Debug, Default, Eq, From, Display, Deref, DerefMut)]
@@ -189,43 +270,42 @@ impl PartialEq for SubstTerm {
 	}
 }
 
-fn compute_var_heap_address<V, I>(register: &VarRegister, instructions: &V) -> Option<HeapAddress>
-where
-	for<'a> &'a V: IntoIterator<Item = &'a I>,
-	I: StaticMapping,
-{
-	let mut heap_top = HeapAddress::default();
+// fn compute_var_heap_address<V, I>(register: &VarRegister, instructions: &V) -> Option<HeapAddress>
+// where
+// 	for<'a> &'a V: IntoIterator<Item = &'a I>,
+// 	I: StaticMapping,
+// {
+// 	let mut heap_top = HeapAddress::default();
 
-	for instruction in instructions {
-		if let Some(address) = instruction.static_variable_entry_point(register, heap_top) {
-			return Some(address);
-		}
+// 	for instruction in instructions {
+// 		if let Some(address) = instruction.static_variable_entry_point(register, heap_top) {
+// 			return Some(address);
+// 		}
 
-		if let Some(ep) = instruction.static_heap_size() {
-			heap_top += ep;
-		} else {
-			break;
-		}
-	}
+// 		if let Some(ep) = instruction.static_heap_size() {
+// 			heap_top += ep;
+// 		} else {
+// 			break;
+// 		}
+// 	}
 
-	None
-}
+// 	None
+// }
 
-pub fn compute_var_heap_mapping<V, I>(var_reg_mapping: &VarToRegMapping, instructions: &V) -> Result<VarToHeapMapping>
-where
-	for<'a> &'a V: IntoIterator<Item = &'a I>,
-	I: StaticMapping,
-{
-	Ok(var_reg_mapping
-		.iter()
-		.filter_map(|(var, reg)| compute_var_heap_address(reg, instructions).map(|addr| (var.clone(), addr)))
-		.collect())
-}
+// pub fn compute_var_heap_mapping<V, I>(var_reg_mapping: &VarToRegMapping, instructions: &V) -> Result<VarToHeapMapping>
+// where
+// 	for<'a> &'a V: IntoIterator<Item = &'a I>,
+// 	I: StaticMapping,
+// {
+// 	Ok(var_reg_mapping
+// 		.iter()
+// 		.filter_map(|(var, reg)| compute_var_heap_address(reg, instructions).map(|addr| (var.clone(), addr)))
+// 		.collect())
+// }
 
-pub trait ExtractSubstitution<L: Language>
-where
-	L::InstructionSet: StaticMapping,
-{
+pub trait ExtractSubstitution<L: Language> {
+	fn execute_code(&mut self, code: &Compiled<L>) -> Result<()>;
+
 	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
 		-> Result<SubstTerm>;
 
@@ -241,6 +321,15 @@ where
 		}
 
 		Ok(substitution)
+	}
+
+	fn execute_and_extract_substitution(&mut self, code: Compiled<L>) -> Result<Substitution>
+	where
+		Compiled<L>: StaticallyAnalysable,
+	{
+		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
+		self.execute_code(&analysable_code)?;
+		self.extract_substitution(var_heap_mapping)
 	}
 }
 
@@ -282,6 +371,8 @@ pub fn extract_heap(
 
 #[cfg(test)]
 mod tests {
+	use std::vec;
+
 	use crate::parser::ParseAs;
 
 	use super::*;

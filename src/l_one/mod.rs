@@ -6,9 +6,9 @@ use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoI
 use crate::{
 	ast::{Fact, Functor, Identifier},
 	display_iter,
-	machine_types::{HeapAddress, VarRegister},
+	machine_types::VarRegister,
 	parser::{parser_sequence::Separator, Parsable, Parser},
-	substitution::StaticMapping,
+	substitution::VarEntryPoint,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
 };
@@ -51,7 +51,7 @@ impl Interpreter<L1> for L1Interpreter {
 		Ok(Self::new(program.compile_as_program()?))
 	}
 
-	fn submit_query(&mut self, query: Fact) -> Result<Substitution> {
+	fn submit_query(&mut self, _query: Fact) -> Result<Substitution> {
 		todo!()
 	}
 }
@@ -100,31 +100,12 @@ impl fmt::Display for L1Instruction {
 	}
 }
 
-impl StaticMapping for L1Instruction {
-	#[rustfmt::skip]
-	fn static_heap_size(&self) -> Option<HeapAddress> {
+impl VarEntryPoint for L1Instruction {
+	fn is_variable_entry_point(&self) -> Option<(VarRegister, Self)> {
 		match self {
-			L1Instruction::Proceed            => Some(0),
-			
-			L1Instruction::PutStructure(_, _) => Some(2),
-			L1Instruction::SetVariable(_)     => Some(1),
-			L1Instruction::SetValue(_)        => Some(1),
+			L1Instruction::SetVariable(reg) => Some((*reg, L1Instruction::SetValue(*reg))),
 
-			L1Instruction::PutVariable(_, _)  => Some(1),
-			L1Instruction::PutValue(_, _)     => Some(0),
-			L1Instruction::GetVariable(_, _)  => Some(0),
-			L1Instruction::GetValue(_, _)     => Some(0),
-
-			_ => None,
-		}
-		.map(Into::into)
-	}
-
-	fn static_variable_entry_point(&self, register: &VarRegister, pre_heap_top: HeapAddress) -> Option<HeapAddress> {
-		match self {
-			L1Instruction::SetVariable(reg) if reg == register => Some(pre_heap_top),
-
-			L1Instruction::PutVariable(xn, _) if xn == register => Some(pre_heap_top),
+			L1Instruction::PutVariable(xn, ai) => Some((*xn, L1Instruction::PutValue(*xn, *ai))),
 
 			_ => None,
 		}

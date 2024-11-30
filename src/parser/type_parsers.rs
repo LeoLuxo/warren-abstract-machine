@@ -83,7 +83,7 @@ impl Parsable for ScopedVariable {
 		let context = if parser.match_string("<").is_ok() {
 			let ctx = parser.match_identifier()?.to_owned().into();
 			parser.match_string(">")?;
-			VariableContext::Local(ctx)
+			VariableContext::Program(ctx)
 		} else {
 			VariableContext::Query
 		};

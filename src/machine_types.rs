@@ -164,3 +164,8 @@ impl<C> Default for Heap<C> {
 	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign,
 )]
 pub struct CodeAddress(usize);
+
+#[rustfmt::skip] impl Add<usize> for CodeAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) } }
+#[rustfmt::skip] impl Sub<usize> for CodeAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
+#[rustfmt::skip] impl AddAssign<usize> for CodeAddress { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
+#[rustfmt::skip] impl SubAssign<usize> for CodeAddress { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }

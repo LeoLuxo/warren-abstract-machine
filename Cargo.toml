@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 anyhow      = "1.0.86"
+bimap       = "0.6.3"
 derive_more = { version = "1.0.0", features = ["full"] }
 indoc       = "2.0.5"
 itertools   = "0.13.0"

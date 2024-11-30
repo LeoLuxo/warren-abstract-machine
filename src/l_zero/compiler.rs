@@ -26,7 +26,7 @@ use super::{L0Instruction, NonVariableTerm, L0};
 impl CompilableProgram<L0> for NonVariableTerm {
 	fn compile_as_program(self) -> Result<Compiled<L0>> {
 		let order = FlatteningOrder::for_program();
-		let context = VariableContext::Local("prg".into());
+		let context = VariableContext::Program("prg".into());
 		let (tokens, var_mapping) = flatten_term(self, order, context);
 
 		let instructions = compile_program_tokens(tokens);

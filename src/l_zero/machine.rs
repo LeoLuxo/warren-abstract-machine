@@ -9,6 +9,7 @@ use crate::{
 	enumerate, indent,
 	machine_types::{Cell, Heap, HeapAddress, ReadWrite, VarRegister, VarRegisters},
 	substitution::{self, ExtractSubstitution, SubstTerm},
+	universal_compiler::Compiled,
 };
 
 use super::{L0Instruction, L0};
@@ -203,6 +204,10 @@ impl M0 {
 */
 
 impl ExtractSubstitution<L0> for M0 {
+	fn execute_code(&mut self, code: &Compiled<L0>) -> Result<()> {
+		self.execute(&code.instructions)
+	}
+
 	fn extract_heap(
 		&self,
 		address: HeapAddress,
