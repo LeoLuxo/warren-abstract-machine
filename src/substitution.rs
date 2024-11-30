@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use bimap::BiHashMap;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
-use std::{collections::HashMap, hash::Hash, mem};
+use std::{collections::HashMap, fmt::Display, hash::Hash, mem};
 use velcro::vec;
 
 /*
@@ -326,8 +326,11 @@ pub trait ExtractSubstitution<L: Language> {
 	fn execute_and_extract_substitution(&mut self, code: Compiled<L>) -> Result<Substitution>
 	where
 		Compiled<L>: StaticallyAnalysable,
+		L::InstructionSet: Display,
 	{
 		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
+		println!("Statically analysable code:\n{}\n", analysable_code);
+
 		self.execute_code(&analysable_code)?;
 		self.extract_substitution(var_heap_mapping)
 	}

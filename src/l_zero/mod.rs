@@ -58,10 +58,10 @@ impl Interpreter<L0> for L0Interpreter {
 		let mut machine = M0::new();
 
 		let code = compiled_query + self.compiled_program.clone();
-		println!("{}", code);
+		println!("Code:\n{}\n", code);
 
 		let solution = machine.execute_and_extract_substitution(code)?;
-		println!("{}", solution);
+		println!("Solution:\n{}\n", solution);
 
 		Ok(solution)
 	}
