@@ -8,7 +8,7 @@ use crate::{
 	display_iter,
 	machine_types::{HeapAddress, VarRegister},
 	parser::{parser_sequence::Separator, Parsable, Parser},
-	subst::StaticMapping,
+	substitution::StaticMapping,
 	universal_compiler::Compiled,
 	CompilableProgram, Interpreter, Language, Substitution,
 };

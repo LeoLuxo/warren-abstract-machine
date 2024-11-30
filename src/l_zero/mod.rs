@@ -8,7 +8,7 @@ use crate::{
 	ast::{Constant, Functor, Structure, Term},
 	machine_types::{HeapAddress, VarRegister},
 	parser::{Parsable, Parser},
-	subst::{ExtractSubstitution, StaticMapping},
+	substitution::{ExtractSubstitution, StaticMapping},
 	universal_compiler::{CompilableProgram, CompilableQuery, Compiled},
 	Interpreter, Language, Substitution,
 };

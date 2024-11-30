@@ -1,5 +1,5 @@
 use anyhow::Result;
-use subst::Substitution;
+use substitution::Substitution;
 use universal_compiler::{CompilableProgram, CompilableQuery};
 use util::Successor;
 
@@ -15,7 +15,7 @@ pub mod l_one;
 pub mod l_zero;
 pub mod machine_types;
 pub mod parser;
-pub mod subst;
+pub mod substitution;
 pub mod universal_compiler;
 pub mod util;
 

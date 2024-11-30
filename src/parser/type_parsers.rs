@@ -4,7 +4,7 @@ use crate::{
 	anonymous::AnonymousIdentifier,
 	ast::{Atom, Atoms, Clause, Clauses, Constant, Fact, Functor, Rule, Structure, Term, Terms, Variable},
 	machine_types::VarRegister,
-	subst::{ScopedVariable, SubstTerm, Substitution, VariableContext},
+	substitution::{ScopedVariable, SubstTerm, Substitution, VariableContext},
 };
 
 use super::{parser_sequence::Separator, Parsable, Parser};

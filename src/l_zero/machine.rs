@@ -8,7 +8,7 @@ use crate::{
 	ast::Functor,
 	enumerate, indent,
 	machine_types::{Cell, Heap, HeapAddress, ReadWrite, VarRegister, VarRegisters},
-	subst::{self, ExtractSubstitution, SubstTerm},
+	substitution::{self, ExtractSubstitution, SubstTerm},
 };
 
 use super::{L0Instruction, L0};
@@ -208,6 +208,6 @@ impl ExtractSubstitution<L0> for M0 {
 		address: HeapAddress,
 		anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
 	) -> Result<SubstTerm> {
-		subst::extract_heap(&self.heap, address, anon_gen, 0)
+		substitution::extract_heap(&self.heap, address, anon_gen, 0)
 	}
 }

@@ -8,7 +8,7 @@ use velcro::hash_map;
 
 use crate::ast::Fact;
 use crate::ast::GetFunctor;
-use crate::subst::{VarToRegMapping, VariableContext};
+use crate::substitution::{VarToRegMapping, VariableContext};
 use crate::universal_compiler;
 use crate::universal_compiler::CompilableProgram;
 use crate::universal_compiler::CompilableQuery;

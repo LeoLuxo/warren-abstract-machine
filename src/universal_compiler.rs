@@ -13,7 +13,7 @@ use crate::{
 	ast::{Functor, GetFunctor, Identifier, Term, Variable},
 	display_iter,
 	machine_types::{CodeAddress, VarRegister},
-	subst::{self, StaticMapping, VarToHeapMapping, VarToRegMapping},
+	substitution::{self, StaticMapping, VarToHeapMapping, VarToRegMapping},
 	util::Successor,
 	Language,
 };
@@ -91,7 +91,7 @@ impl<L: Language> Compiled<L> {
 	where
 		<L as Language>::InstructionSet: StaticMapping,
 	{
-		subst::compute_var_heap_mapping(
+		substitution::compute_var_heap_mapping(
 			self.var_reg_mapping
 				.as_ref()
 				.context("Cannot compute var-heap mapping of compiled without a valid mapping")?,

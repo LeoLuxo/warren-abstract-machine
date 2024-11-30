@@ -1,4 +1,4 @@
-use crate::{ast::Structure, subst::SubstTerm, util::Successor};
+use crate::{ast::Structure, substitution::SubstTerm, util::Successor};
 use derive_more::derive::{Display, From};
 use std::{
 	collections::{hash_map::Entry, HashMap},

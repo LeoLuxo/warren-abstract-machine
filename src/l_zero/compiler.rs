@@ -10,7 +10,7 @@ use crate::universal_compiler::Compiled;
 use crate::universal_compiler::FlatteningOrder;
 use crate::{
 	machine_types::VarRegister,
-	subst::{VarToRegMapping, VariableContext},
+	substitution::{VarToRegMapping, VariableContext},
 };
 
 use crate::universal_compiler::MappingToken;
