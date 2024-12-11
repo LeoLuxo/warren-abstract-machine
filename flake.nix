@@ -50,22 +50,16 @@
             };
 
         # For `nix develop` and `direnv allow`
-        devShells.default = pkgs.mkShell {
+        devShell = pkgs.mkShell {
           inputsFrom = [ packages.default ];
           buildInputs = with pkgs; [
-            rustToolchain
-
             pre-commit
             pkg-config
-            libiconv
 
-            # rustup
+            rustToolchain
             rust-analyzer
             rustPackages.clippy
           ];
-
-          # nativeBuildInputs = [ pkgs.pkg-config ];
-          # RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
         };
       }
     );
