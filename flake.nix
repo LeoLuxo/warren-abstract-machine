@@ -39,8 +39,8 @@
           };
       in
       rec {
-        # For `nix build` & `nix run`
-        defaultPackage =
+        # For `nix build` and `nix run`
+        packages.default =
           (naersk.lib.${system}.override {
             cargo = rustToolchain;
             rustc = rustToolchain;
@@ -49,9 +49,9 @@
               src = ./.;
             };
 
-        # For `nix develop` or `direnv allow`
-        devShell = pkgs.mkShell {
-          inputsFrom = [ defaultPackage ];
+        # For `nix develop` and `direnv allow`
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [ packages.default ];
           buildInputs = with pkgs; [
             rustToolchain
 
