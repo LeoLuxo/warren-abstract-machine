@@ -53,13 +53,13 @@
         devShell = pkgs.mkShell {
           inputsFrom = [ packages.default ];
           buildInputs = with pkgs; [
-            pre-commit
-            pkg-config
-
             rustToolchain
+
+            pre-commit
             rust-analyzer
-            rustPackages.clippy
           ];
+
+          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         };
       }
     );
