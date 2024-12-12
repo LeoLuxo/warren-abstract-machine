@@ -63,7 +63,7 @@ impl Interpreter<L0> for L0Interpreter {
 		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
 		println!("Statically analysable code:\n{}\n", analysable_code);
 
-		machine.execute(&analysable_code.instructions);
+		machine.execute(&analysable_code.instructions)?;
 
 		let solution = machine.extract_substitution(var_heap_mapping)?;
 		println!("Solution:\n{}\n", solution);

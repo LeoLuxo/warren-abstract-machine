@@ -1,5 +1,5 @@
 use anyhow::Result;
-use warren_abstract_machine::{l_one::L1, l_zero::L0, parser::ParseAs, solve};
+use warren_abstract_machine::{l_one::L1, parser::ParseAs, solve};
 
 fn main() -> Result<()> {
 	// solve::<L0>("p(a)".parse_as()?, "p(X)".parse_as()?)?;

@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use bimap::BiHashMap;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
 use itertools::Itertools;
-use std::{collections::HashMap, fmt::Display, hash::Hash, mem};
+use std::{collections::HashMap, hash::Hash, mem};
 use velcro::vec;
 
 /*

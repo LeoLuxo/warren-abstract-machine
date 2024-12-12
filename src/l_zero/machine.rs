@@ -7,7 +7,6 @@ use crate::{
 	enumerate, indent,
 	machine_types::{Cell, Heap, HeapAddress, ReadWrite, StoreAddress, VarRegisters},
 	substitution::{self, ExtractSubstitution, SubstTerm},
-	universal_compiler::Compiled,
 };
 
 use super::{L0Instruction, L0};
