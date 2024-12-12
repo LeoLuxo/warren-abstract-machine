@@ -14,6 +14,11 @@ mod l_zero {
 			"{ C -> f(c) }".parse_as()?
 		);
 
+		assert_eq!(
+			solve::<L0>("a(X, X)".parse_as()?, "a(X, a)".parse_as()?)?,
+			"{ X -> a }".parse_as()?
+		);
+
 		Ok(())
 	}
 

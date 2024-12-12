@@ -58,7 +58,6 @@ impl<'source> Parser<'source> {
 		let mut parser = Self::new(source);
 
 		// Workaround for try{} blocks until they arrive in stable rust
-		
 
 		(|| {
 			let result = parser.match_type()?;
