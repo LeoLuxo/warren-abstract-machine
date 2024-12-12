@@ -1,3 +1,9 @@
+//! Provides the types for the entire AST of prolog.
+//!
+//! Each of the subset-languages defines its own types as needed based on the ones in this AST, to avoid code duplication.
+//! The AST here is defined recursively.
+//! The file is ordered top-down (ish).
+
 use std::{
 	borrow::Cow,
 	fmt::{self, Debug, Display},
@@ -14,10 +20,6 @@ use crate::display_iter;
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 --------------------------------------------------------------------------------
 */
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut, Constructor, Display, From)]
-#[from(forward)]
-pub struct Identifier(Cow<'static, str>);
 
 /// Represents a sequence of clauses.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deref, DerefMut, Display, From, IntoIterator, Index, IndexMut)]
@@ -176,6 +178,7 @@ impl<T> Default for Structure<T> {
 
 pub type Arity = usize;
 
+/// A functor in the form `a/0` or `f/3`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Constructor, Display, From)]
 #[display("{name}/{arity}")]
 pub struct Functor {
@@ -229,6 +232,11 @@ impl GetFunctor for Constant {
 		}
 	}
 }
+
+/// A string-like identifier.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut, Constructor, Display, From)]
+#[from(forward)]
+pub struct Identifier(Cow<'static, str>);
 
 /*
 --------------------------------------------------------------------------------

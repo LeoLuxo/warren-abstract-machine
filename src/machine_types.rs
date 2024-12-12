@@ -1,3 +1,5 @@
+//! Provides the types common between certain language-specific implementations of the WAM.
+
 use std::{
 	collections::HashMap,
 	fmt::Display,

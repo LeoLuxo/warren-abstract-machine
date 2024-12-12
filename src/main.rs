@@ -1,3 +1,11 @@
+//! The main starting point of the machine.
+//!
+//! As the project doesn't have a true end-user interface, this file is mainly used to
+//! quickly test some small functionality; see the commented-out fragments of code below.
+//!
+//! The real root of the project is defined in [lib.rs].
+//! The integration tests are in the [../tests] folder.
+
 use anyhow::Result;
 use warren_abstract_machine::{l_one::L1, parser::ParseAs, solve};
 

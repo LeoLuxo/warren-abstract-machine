@@ -58,7 +58,8 @@ impl Parser<'_> {
 				// Match the inner element
 				let element = inner_fn(self);
 
-				// If we didn't match, then that means we're hitting things outside the sequence (potentially a closed paren or other stuff), break peacefully
+				// If we didn't match, then that means we're hitting things outside the sequence (potentially a closed paren or other stuff), break peacefully.
+				// We don't want to explicitly rewind the sequence, we're assuming the inner element rewound as needed in case of an error.
 				if let Result::Ok(e) = element {
 					sequence.push(e);
 				} else {

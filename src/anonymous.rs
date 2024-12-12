@@ -1,3 +1,7 @@
+//! Provides certain types that define the behavior of anonymous identifiers in substitution sets.
+//!
+//! Technically could be contained in [substition.rs].
+
 use crate::{ast::Structure, substitution::SubstTerm, util::Successor};
 use derive_more::derive::{Display, From};
 use std::{

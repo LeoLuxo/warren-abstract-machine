@@ -1,3 +1,8 @@
+//! Define some small utilities not particularly specific to the Warren Abstract Machine but that were useful in this project.
+//!
+//! Notably the Successor trait, which provides a "next" value.
+//! And some pretty-printing macros.
+
 pub trait Successor: Clone {
 	fn next(&self) -> Self;
 

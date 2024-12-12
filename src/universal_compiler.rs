@@ -1,3 +1,6 @@
+//! Provides types and implementations common to all language compilers (or at least L0 and L1).
+//! Also provides the interface/traits that unify the compiler interfaces.
+
 use std::{
 	collections::{hash_map, HashMap, VecDeque},
 	fmt::Display,
@@ -33,13 +36,19 @@ pub trait CompilableQuery<L: Language> {
 
 pub type Labels = HashMap<Identifier, CodeAddress>;
 
+/// Represents a compiled piece of code (regardless whether program or query) for a given Language.
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]
 #[display("{}\n{}\n{}", display_iter!(instructions, "\n"), display_map!(labels), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Compiled<L: Language> {
+	/// The sequence of instructions of the code
 	pub instructions: Vec<L::InstructionSet>,
-	pub var_reg_mapping: Option<VarToRegMapping>,
+
+	/// The symbolic labels of the code
 	pub labels: Labels,
+
+	/// The variable -> register mapping computed during compilation, is important to extract the substitution set
+	pub var_reg_mapping: Option<VarToRegMapping>,
 }
 
 impl<L: Language> Default for Compiled<L> {

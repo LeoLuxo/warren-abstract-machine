@@ -1,3 +1,8 @@
+//! Provides types and implementations necessary to extract the substitution sets from a WAM.
+//!
+//! This file is separate from the individual language modules as the code is reusable for each language,
+//! and also as to avoid mixing the "true" machines with the tricks employed to extrac substitutions.
+
 use crate::{
 	anonymous::{AnonymousEq, AnonymousIdGenerator, AnonymousIdentifier},
 	ast::{Constant, Functor, Identifier, Structure, Variable},
@@ -19,118 +24,52 @@ use velcro::vec;
 --------------------------------------------------------------------------------
 */
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub enum VariableContext {
-	#[default]
-	Query,
-	Program(Identifier),
-}
+pub trait ExtractSubstitution<L: Language> {
+	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
+		-> Result<SubstTerm>;
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
-#[display("{}", match context { 
-	VariableContext::Query               => format!("{}", variable),
-	VariableContext::Program(identifier) => format!("{}<{}>", variable, identifier)
-})]
-pub struct ScopedVariable {
-	context: VariableContext,
-	variable: Variable,
-}
+	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
+		var_heap_mapping.filter_by_context(VariableContext::Query);
 
-impl ScopedVariable {
-	pub fn new(variable: Variable, context: VariableContext) -> Self {
-		Self { context, variable }
-	}
+		let mut substitution = Substitution::default();
+		let mut anon_map = AnonymousIdGenerator::default();
 
-	pub fn set_context(&mut self, context: VariableContext) {
-		self.context = context;
-	}
-
-	pub fn drop_context(self) -> Variable {
-		self.variable
-	}
-
-	pub fn matches_context(&self, context: &VariableContext) -> bool {
-		self.context == *context
-	}
-}
-
-impl From<Variable> for ScopedVariable {
-	fn from(value: Variable) -> Self {
-		Self {
-			variable: value,
-			context: Default::default(),
+		for (var, address) in var_heap_mapping.into_iter().sorted() {
+			let entry = self.extract_heap(address, &mut anon_map)?;
+			substitution.insert(var, entry);
 		}
+
+		Ok(substitution)
 	}
 }
 
-impl From<ScopedVariable> for Variable {
-	fn from(value: ScopedVariable) -> Self {
-		value.drop_context()
-	}
-}
+pub fn extract_heap(
+	heap: &Heap<Cell>,
+	address: HeapAddress,
+	anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
+	iterations: u32,
+) -> Result<SubstTerm> {
+	match &heap[address] {
+		_ if iterations > heap.len() as u32 => {
+			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
+		}
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("{}", display_map!(_0))]
-pub struct VarToRegMapping(BiHashMap<ScopedVariable, VarRegister>);
+		Cell::REF(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
+		Cell::STR(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
 
-impl VarToRegMapping {
-	pub fn filter_by_context(&mut self, context: VariableContext) {
-		self.0 = mem::take(&mut self.0)
-			.into_iter()
-			.filter(|(var, _)| var.matches_context(&context))
-			.collect()
-	}
+		Cell::REF(a) => Ok(SubstTerm::Unbound(anon_gen.get_identifier(*a))),
 
-	pub fn from_hashmap_with_context(hashmap: HashMap<Variable, VarRegister>, context: VariableContext) -> Self {
-		hashmap
-			.into_iter()
-			.map(|(variable, reg)| {
-				(
-					ScopedVariable {
-						variable,
-						context: context.clone(),
-					},
-					reg,
-				)
-			})
-			.collect()
-	}
-}
+		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
 
-impl FromIterator<(ScopedVariable, VarRegister)> for VarToRegMapping {
-	fn from_iter<T: IntoIterator<Item = (ScopedVariable, VarRegister)>>(iter: T) -> Self {
-		BiHashMap::from_iter(iter).into()
-	}
-}
+		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
+			name: name.clone(),
+			arguments: (1..=*arity)
+				.map(|i| extract_heap(heap, address + i, anon_gen, iterations + 1))
+				.collect::<Result<Vec<_>>>()?
+				.into(),
+		})),
 
-impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
-	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
-		BiHashMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
-	}
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
-#[display("{}", display_map!(_0))]
-pub struct VarToHeapMapping(HashMap<ScopedVariable, HeapAddress>);
-
-impl VarToHeapMapping {
-	pub fn filter_by_context(&mut self, context: VariableContext) {
-		self.0 = mem::take(&mut self.0)
-			.into_iter()
-			.filter(|(var, _)| var.matches_context(&context))
-			.collect()
-	}
-}
-
-impl FromIterator<(ScopedVariable, HeapAddress)> for VarToHeapMapping {
-	fn from_iter<T: IntoIterator<Item = (ScopedVariable, HeapAddress)>>(iter: T) -> Self {
-		HashMap::from_iter(iter).into()
-	}
-}
-
-impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
-	fn from_iter<T: IntoIterator<Item = (Variable, HeapAddress)>>(iter: T) -> Self {
-		HashMap::from_iter(iter.into_iter().map(|(var, addr)| (var.into(), addr))).into()
+		_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
 	}
 }
 
@@ -270,63 +209,124 @@ impl PartialEq for SubstTerm {
 	}
 }
 
-pub trait ExtractSubstitution<L: Language> {
-	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
-		-> Result<SubstTerm>;
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
-	fn extract_substitution(&self, mut var_heap_mapping: VarToHeapMapping) -> Result<Substitution> {
-		var_heap_mapping.filter_by_context(VariableContext::Query);
-
-		let mut substitution = Substitution::default();
-		let mut anon_map = AnonymousIdGenerator::default();
-
-		for (var, address) in var_heap_mapping.into_iter().sorted() {
-			let entry = self.extract_heap(address, &mut anon_map)?;
-			substitution.insert(var, entry);
-		}
-
-		Ok(substitution)
-	}
-
-	// fn execute_and_extract_substitution(&mut self, code: Compiled<L>) -> Result<Substitution>
-	// where
-	// 	Compiled<L>: StaticallyAnalysable,
-	// 	L::InstructionSet: Display,
-	// {
-	// 	let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
-
-	// 	self.execute_static_code(&analysable_code)?;
-	// 	self.extract_substitution(var_heap_mapping)
-	// }
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub enum VariableContext {
+	#[default]
+	Query,
+	Program(Identifier),
 }
 
-pub fn extract_heap(
-	heap: &Heap<Cell>,
-	address: HeapAddress,
-	anon_gen: &mut AnonymousIdGenerator<HeapAddress>,
-	iterations: u32,
-) -> Result<SubstTerm> {
-	match &heap[address] {
-		_ if iterations > heap.len() as u32 => {
-			bail!("Non-terminating substitution encountered. The solution doesn't satisfy the occurs-check.")
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display("{}", match context { 
+	VariableContext::Query               => format!("{}", variable),
+	VariableContext::Program(identifier) => format!("{}<{}>", variable, identifier)
+})]
+pub struct ScopedVariable {
+	context: VariableContext,
+	variable: Variable,
+}
+
+impl ScopedVariable {
+	pub fn new(variable: Variable, context: VariableContext) -> Self {
+		Self { context, variable }
+	}
+
+	pub fn set_context(&mut self, context: VariableContext) {
+		self.context = context;
+	}
+
+	pub fn drop_context(self) -> Variable {
+		self.variable
+	}
+
+	pub fn matches_context(&self, context: &VariableContext) -> bool {
+		self.context == *context
+	}
+}
+
+impl From<Variable> for ScopedVariable {
+	fn from(value: Variable) -> Self {
+		Self {
+			variable: value,
+			context: Default::default(),
 		}
+	}
+}
 
-		Cell::REF(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
-		Cell::STR(a) if address != *a => extract_heap(heap, *a, anon_gen, iterations + 1),
+impl From<ScopedVariable> for Variable {
+	fn from(value: ScopedVariable) -> Self {
+		value.drop_context()
+	}
+}
 
-		Cell::REF(a) => Ok(SubstTerm::Unbound(anon_gen.get_identifier(*a))),
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct VarToRegMapping(BiHashMap<ScopedVariable, VarRegister>);
 
-		Cell::Functor(Functor { name, arity }) if *arity == 0 => Ok(SubstTerm::Constant(Constant(name.clone()))),
+impl VarToRegMapping {
+	pub fn filter_by_context(&mut self, context: VariableContext) {
+		self.0 = mem::take(&mut self.0)
+			.into_iter()
+			.filter(|(var, _)| var.matches_context(&context))
+			.collect()
+	}
 
-		Cell::Functor(Functor { name, arity }) => Ok(SubstTerm::Structure(Structure {
-			name: name.clone(),
-			arguments: (1..=*arity)
-				.map(|i| extract_heap(heap, address + i, anon_gen, iterations + 1))
-				.collect::<Result<Vec<_>>>()?
-				.into(),
-		})),
+	pub fn from_hashmap_with_context(hashmap: HashMap<Variable, VarRegister>, context: VariableContext) -> Self {
+		hashmap
+			.into_iter()
+			.map(|(variable, reg)| {
+				(
+					ScopedVariable {
+						variable,
+						context: context.clone(),
+					},
+					reg,
+				)
+			})
+			.collect()
+	}
+}
 
-		_ => bail!("Machine yielded an invalid substitution. This might be a bug."),
+impl FromIterator<(ScopedVariable, VarRegister)> for VarToRegMapping {
+	fn from_iter<T: IntoIterator<Item = (ScopedVariable, VarRegister)>>(iter: T) -> Self {
+		BiHashMap::from_iter(iter).into()
+	}
+}
+
+impl FromIterator<(Variable, VarRegister)> for VarToRegMapping {
+	fn from_iter<T: IntoIterator<Item = (Variable, VarRegister)>>(iter: T) -> Self {
+		BiHashMap::from_iter(iter.into_iter().map(|(var, reg)| (var.into(), reg))).into()
+	}
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, From, IntoIterator, Deref, DerefMut, Index, IndexMut, Display)]
+#[display("{}", display_map!(_0))]
+pub struct VarToHeapMapping(HashMap<ScopedVariable, HeapAddress>);
+
+impl VarToHeapMapping {
+	pub fn filter_by_context(&mut self, context: VariableContext) {
+		self.0 = mem::take(&mut self.0)
+			.into_iter()
+			.filter(|(var, _)| var.matches_context(&context))
+			.collect()
+	}
+}
+
+impl FromIterator<(ScopedVariable, HeapAddress)> for VarToHeapMapping {
+	fn from_iter<T: IntoIterator<Item = (ScopedVariable, HeapAddress)>>(iter: T) -> Self {
+		HashMap::from_iter(iter).into()
+	}
+}
+
+impl FromIterator<(Variable, HeapAddress)> for VarToHeapMapping {
+	fn from_iter<T: IntoIterator<Item = (Variable, HeapAddress)>>(iter: T) -> Self {
+		HashMap::from_iter(iter.into_iter().map(|(var, addr)| (var.into(), addr))).into()
 	}
 }
 

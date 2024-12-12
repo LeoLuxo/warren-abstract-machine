@@ -1,3 +1,11 @@
+//! Provides the parsing engine I wrote for the project.
+//!
+//! The parser is a simple recursive-descent parser which "tries-or-rewinds"
+//! (i.e. tries parsing a certain type, and if that doesn't work, rewind the input stream and try something else).
+//! Might not be the most efficient, but is really elegant to work with (see [type_parsers.rs]).
+//!
+//! The specific parsers for the types of this project are in [type_parsers.rs].
+
 use anyhow::{bail, Context, Ok, Result};
 use regex::Regex;
 
@@ -9,9 +17,14 @@ use crate::static_regex;
 --------------------------------------------------------------------------------
 */
 
-pub mod parser_disjunction;
-pub mod parser_sequence;
+/// Provides the parsers to parse the types of this project.
 pub mod type_parsers;
+
+/// Extends the parsing engine with a disjunction mechanism to more elegantly "try-then-try-something-else".
+pub mod parser_disjunction;
+
+/// Extends the parsing engine with a mechanism to parse finite sequences.
+pub mod parser_sequence;
 
 pub trait ParseAs {
 	fn parse_as<T: Parsable>(&self) -> Result<T>;
