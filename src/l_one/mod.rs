@@ -2,14 +2,15 @@ use std::fmt;
 
 use anyhow::Result;
 use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoIterator};
+use machine::M1;
 
 use crate::{
 	ast::{Fact, Functor, Identifier},
 	display_iter,
 	machine_types::VarRegister,
 	parser::{parser_sequence::Separator, Parsable, Parser},
-	substitution::VarEntryPoint,
-	universal_compiler::Compiled,
+	substitution::{ExtractSubstitution, StaticallyAnalysable, VarEntryPoint},
+	universal_compiler::{CompilableQuery, Compiled},
 	CompilableProgram, Interpreter, Language, Substitution,
 };
 
@@ -35,15 +36,16 @@ impl Language for L1 {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct L1Interpreter {
-	compiled_program: Compiled<L1>,
+	machine: M1,
 }
 
 impl L1Interpreter {
 	fn new(compiled_program: Compiled<L1>) -> Self {
-		Self {
-			compiled_program,
-			..Default::default()
-		}
+		println!("Program:\n{}\n", compiled_program);
+
+		let mut machine = M1::new();
+		machine.add_code(compiled_program);
+		Self { machine }
 	}
 }
 
@@ -52,8 +54,20 @@ impl Interpreter<L1> for L1Interpreter {
 		Ok(Self::new(program.compile_as_program()?))
 	}
 
-	fn submit_query(&mut self, _query: Fact) -> Result<Substitution> {
-		todo!()
+	fn submit_query(&mut self, query: Fact) -> Result<Substitution> {
+		let compiled_query = query.compile_as_query()?;
+		println!("Query:\n{}\n", compiled_query);
+
+		let (analysable_query, var_heap_mapping) = compiled_query.to_statically_analysable();
+		println!("Statically analysable query:\n{}\n", analysable_query);
+
+		self.machine.add_code(analysable_query);
+		self.machine.execute()?;
+
+		let solution = self.machine.extract_substitution(var_heap_mapping)?;
+		println!("Solution:\n{}\n", solution);
+
+		Ok(solution)
 	}
 }
 

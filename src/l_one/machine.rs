@@ -1,4 +1,3 @@
-
 use anyhow::{bail, Result};
 use derive_more::derive::Display;
 
@@ -37,8 +36,11 @@ impl M1 {
 		Default::default()
 	}
 
-	pub fn add_code(&mut self, instructions: Vec<L1Instruction>, labels: Labels) {
-		self.code.combine(Code { instructions, labels });
+	pub fn add_code(&mut self, code: Compiled<L1>) {
+		self.code.combine(Code {
+			instructions: code.instructions,
+			labels: code.labels,
+		});
 	}
 
 	pub fn execute(&mut self) -> Result<()> {
@@ -226,11 +228,6 @@ impl M1 {
 */
 
 impl ExtractSubstitution<L1> for M1 {
-	fn execute_static_code(&mut self, code: &Compiled<L1>) -> Result<()> {
-		self.add_code(code.instructions.clone(), code.labels.clone());
-		self.execute()
-	}
-
 	fn extract_heap(
 		&self,
 		address: HeapAddress,

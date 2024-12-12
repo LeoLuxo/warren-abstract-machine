@@ -270,42 +270,7 @@ impl PartialEq for SubstTerm {
 	}
 }
 
-// fn compute_var_heap_address<V, I>(register: &VarRegister, instructions: &V) -> Option<HeapAddress>
-// where
-// 	for<'a> &'a V: IntoIterator<Item = &'a I>,
-// 	I: StaticMapping,
-// {
-// 	let mut heap_top = HeapAddress::default();
-
-// 	for instruction in instructions {
-// 		if let Some(address) = instruction.static_variable_entry_point(register, heap_top) {
-// 			return Some(address);
-// 		}
-
-// 		if let Some(ep) = instruction.static_heap_size() {
-// 			heap_top += ep;
-// 		} else {
-// 			break;
-// 		}
-// 	}
-
-// 	None
-// }
-
-// pub fn compute_var_heap_mapping<V, I>(var_reg_mapping: &VarToRegMapping, instructions: &V) -> Result<VarToHeapMapping>
-// where
-// 	for<'a> &'a V: IntoIterator<Item = &'a I>,
-// 	I: StaticMapping,
-// {
-// 	Ok(var_reg_mapping
-// 		.iter()
-// 		.filter_map(|(var, reg)| compute_var_heap_address(reg, instructions).map(|addr| (var.clone(), addr)))
-// 		.collect())
-// }
-
 pub trait ExtractSubstitution<L: Language> {
-	fn execute_static_code(&mut self, code: &Compiled<L>) -> Result<()>;
-
 	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
 		-> Result<SubstTerm>;
 
@@ -323,17 +288,16 @@ pub trait ExtractSubstitution<L: Language> {
 		Ok(substitution)
 	}
 
-	fn execute_and_extract_substitution(&mut self, code: Compiled<L>) -> Result<Substitution>
-	where
-		Compiled<L>: StaticallyAnalysable,
-		L::InstructionSet: Display,
-	{
-		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
-		println!("Statically analysable code:\n{}\n", analysable_code);
+	// fn execute_and_extract_substitution(&mut self, code: Compiled<L>) -> Result<Substitution>
+	// where
+	// 	Compiled<L>: StaticallyAnalysable,
+	// 	L::InstructionSet: Display,
+	// {
+	// 	let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
 
-		self.execute_static_code(&analysable_code)?;
-		self.extract_substitution(var_heap_mapping)
-	}
+	// 	self.execute_static_code(&analysable_code)?;
+	// 	self.extract_substitution(var_heap_mapping)
+	// }
 }
 
 pub fn extract_heap(

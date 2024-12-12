@@ -8,7 +8,7 @@ use crate::{
 	ast::{Constant, Functor, Structure, Term},
 	machine_types::VarRegister,
 	parser::{Parsable, Parser},
-	substitution::{ExtractSubstitution, VarEntryPoint},
+	substitution::{ExtractSubstitution, StaticallyAnalysable, VarEntryPoint},
 	universal_compiler::{Combinable, CompilableProgram, CompilableQuery, Compiled},
 	Interpreter, Language, Substitution,
 };
@@ -60,7 +60,12 @@ impl Interpreter<L0> for L0Interpreter {
 		let code = compiled_query.combined(self.compiled_program.clone());
 		println!("Code:\n{}\n", code);
 
-		let solution = machine.execute_and_extract_substitution(code)?;
+		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
+		println!("Statically analysable code:\n{}\n", analysable_code);
+
+		machine.execute(&analysable_code.instructions);
+
+		let solution = machine.extract_substitution(var_heap_mapping)?;
 		println!("Solution:\n{}\n", solution);
 
 		Ok(solution)

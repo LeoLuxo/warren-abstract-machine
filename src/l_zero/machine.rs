@@ -1,4 +1,3 @@
-
 use anyhow::{bail, Result};
 use derive_more::derive::Display;
 
@@ -181,10 +180,6 @@ impl M0 {
 */
 
 impl ExtractSubstitution<L0> for M0 {
-	fn execute_static_code(&mut self, code: &Compiled<L0>) -> Result<()> {
-		self.execute(&code.instructions)
-	}
-
 	fn extract_heap(
 		&self,
 		address: HeapAddress,
