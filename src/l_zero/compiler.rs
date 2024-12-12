@@ -34,6 +34,7 @@ impl CompilableProgram<L0> for NonVariableTerm {
 		Ok(Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
+			..Default::default()
 		})
 	}
 }
@@ -49,6 +50,7 @@ impl CompilableQuery<L0> for NonVariableTerm {
 		Ok(Compiled {
 			instructions,
 			var_reg_mapping: Some(var_mapping),
+			..Default::default()
 		})
 	}
 }

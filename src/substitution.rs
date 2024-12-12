@@ -3,7 +3,7 @@ use crate::{
 	ast::{Constant, Functor, Identifier, Structure, Variable},
 	display_map,
 	machine_types::{Cell, Heap, HeapAddress, VarRegister},
-	universal_compiler::{Compiled, OffsetJumpLabels},
+	universal_compiler::Compiled,
 	Language,
 };
 use anyhow::{bail, Result};
@@ -157,7 +157,7 @@ where
 impl<L> StaticallyAnalysable for Compiled<L>
 where
 	L: Language,
-	L::InstructionSet: VarEntryPoint + OffsetJumpLabels + Clone,
+	L::InstructionSet: VarEntryPoint + Clone,
 	Self: Clone,
 {
 	fn to_statically_analysable(self) -> (Compiled<L>, VarToHeapMapping) {
@@ -172,6 +172,7 @@ where
 		let Compiled {
 			instructions,
 			var_reg_mapping: _,
+			labels,
 		} = self;
 
 		for instruction in instructions {
@@ -202,15 +203,19 @@ where
 			new_instructions_back.push(instruction);
 		}
 
-		let label_offset = new_instructions_front.len().into();
-
-		let new_instructions_back = new_instructions_back.offset_jump_labels(label_offset);
+		let label_offset = new_instructions_front.len();
 
 		let new_instructions = vec![..new_instructions_front, ..new_instructions_back];
+
+		let new_labels = labels
+			.into_iter()
+			.map(|(ident, addr)| (ident, addr + label_offset))
+			.collect::<HashMap<_, _>>();
 
 		(
 			Self {
 				instructions: new_instructions,
+				labels: new_labels,
 				var_reg_mapping: Some(var_reg_mapping),
 			},
 			var_heap_mapping,
