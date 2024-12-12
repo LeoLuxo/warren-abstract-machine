@@ -160,6 +160,28 @@ impl<C> Default for Heap<C> {
 --------------------------------------------------------------------------------
 */
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Display)]
+pub enum StoreAddress {
+	Register(VarRegister),
+	Heap(HeapAddress),
+}
+
+#[rustfmt::skip] impl PartialEq<VarRegister> for StoreAddress { fn eq(&self, other: &VarRegister)  -> bool { match self  { StoreAddress::Register(var_register) => var_register == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<StoreAddress> for VarRegister { fn eq(&self, other: &StoreAddress) -> bool { match other { StoreAddress::Register(var_register) => var_register == self,  _ => false, } } }
+#[rustfmt::skip] impl PartialEq<HeapAddress> for StoreAddress { fn eq(&self, other: &HeapAddress)  -> bool { match self  { StoreAddress::Heap(heap_address)     => heap_address == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<StoreAddress> for HeapAddress { fn eq(&self, other: &StoreAddress) -> bool { match other { StoreAddress::Heap(heap_address)     => heap_address == self,  _ => false, } } }
+
+#[rustfmt::skip] impl Add<usize> for StoreAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { StoreAddress::Register(var_register) => StoreAddress::Register(var_register + rhs), StoreAddress::Heap(heap_address) => StoreAddress::Heap(heap_address + rhs), } } }
+#[rustfmt::skip] impl Sub<usize> for StoreAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { StoreAddress::Register(var_register) => StoreAddress::Register(var_register - rhs), StoreAddress::Heap(heap_address) => StoreAddress::Heap(heap_address - rhs), } } }
+#[rustfmt::skip] impl AddAssign<usize> for StoreAddress { fn add_assign(&mut self, rhs: usize)  {  match self { StoreAddress::Register(var_register) => *var_register += rhs, StoreAddress::Heap(heap_address) => *heap_address += rhs, } } }
+#[rustfmt::skip] impl SubAssign<usize> for StoreAddress { fn sub_assign(&mut self, rhs: usize)  {  match self { StoreAddress::Register(var_register) => *var_register -= rhs, StoreAddress::Heap(heap_address) => *heap_address -= rhs, } } }
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
 #[derive(
 	Copy, Clone, Debug, Default, PartialEq, Eq, Display, Deref, DerefMut, From, Add, Sub, AddAssign, SubAssign,
 )]

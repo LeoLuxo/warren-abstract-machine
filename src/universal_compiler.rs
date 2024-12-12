@@ -32,13 +32,26 @@ pub trait CompilableQuery<L: Language> {
 	fn compile_as_query(self) -> Result<Compiled<L>>;
 }
 
+pub trait OffsetJumpLabels {
+	fn offset_jump_labels(self, offset: CodeAddress) -> Self;
+}
+
+impl<I> OffsetJumpLabels for Vec<I>
+where
+	I: OffsetJumpLabels,
+{
+	fn offset_jump_labels(self, offset: CodeAddress) -> Self {
+		self.into_iter().map(|inst| inst.offset_jump_labels(offset)).collect()
+	}
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]
 #[display("{}\n{}", display_iter!(instructions, "\n"), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Compiled<L: Language> {
 	pub instructions: Vec<L::InstructionSet>,
 	pub var_reg_mapping: Option<VarToRegMapping>,
-	pub labels: HashMap<Identifier, CodeAddress>,
+	// pub labels: HashMap<Identifier, CodeAddress>,
 }
 
 impl<L: Language> Default for Compiled<L> {
@@ -46,17 +59,22 @@ impl<L: Language> Default for Compiled<L> {
 		Self {
 			instructions: Default::default(),
 			var_reg_mapping: Default::default(),
-			labels: Default::default(),
 		}
 	}
 }
 
-impl<L: Language> Compiled<L> {
+impl<L: Language> Compiled<L>
+where
+	L::InstructionSet: OffsetJumpLabels,
+{
 	pub fn combined(self, other: Self) -> Self {
-		let label_offset = self.instructions.len();
+		let front_instructions = self.instructions;
+		let label_offset = front_instructions.len().into();
+
+		let back_instructions = other.instructions.offset_jump_labels(label_offset);
 
 		// self's instructions then other's instructions, in order
-		let instructions = vec![..self.instructions, ..other.instructions];
+		let instructions = vec![..front_instructions, ..back_instructions];
 
 		// self's mapping takes priority over other's mapping (overwritten where needed)
 		let var_reg_mapping = match (self.var_reg_mapping, other.var_reg_mapping) {
@@ -65,21 +83,9 @@ impl<L: Language> Compiled<L> {
 			_ => None,
 		};
 
-		let labels = self
-			.labels
-			.into_iter()
-			.chain(
-				other
-					.labels
-					.into_iter()
-					.map(|(ident, addr)| (ident, addr + label_offset)),
-			)
-			.collect();
-
 		Self {
 			instructions,
 			var_reg_mapping,
-			labels,
 		}
 	}
 
@@ -88,7 +94,10 @@ impl<L: Language> Compiled<L> {
 	}
 }
 
-impl<L: Language> Add for Compiled<L> {
+impl<L: Language> Add for Compiled<L>
+where
+	L::InstructionSet: OffsetJumpLabels,
+{
 	type Output = Self;
 
 	fn add(self, rhs: Self) -> Self::Output {
@@ -96,7 +105,10 @@ impl<L: Language> Add for Compiled<L> {
 	}
 }
 
-impl<L: Language> AddAssign for Compiled<L> {
+impl<L: Language> AddAssign for Compiled<L>
+where
+	L::InstructionSet: OffsetJumpLabels,
+{
 	fn add_assign(&mut self, rhs: Self) {
 		self.combine(rhs);
 	}

@@ -6,10 +6,10 @@ use machine::M0;
 
 use crate::{
 	ast::{Constant, Functor, Structure, Term},
-	machine_types::VarRegister,
+	machine_types::{CodeAddress, VarRegister},
 	parser::{Parsable, Parser},
 	substitution::{ExtractSubstitution, VarEntryPoint},
-	universal_compiler::{CompilableProgram, CompilableQuery, Compiled},
+	universal_compiler::{CompilableProgram, CompilableQuery, Compiled, OffsetJumpLabels},
 	Interpreter, Language, Substitution,
 };
 
@@ -105,6 +105,13 @@ impl VarEntryPoint for L0Instruction {
 
 			_ => None,
 		}
+	}
+}
+
+impl OffsetJumpLabels for L0Instruction {
+	// L0 doesn't have any instruction with labels, so nothing happens
+	fn offset_jump_labels(self, _offset: CodeAddress) -> Self {
+		self
 	}
 }
 

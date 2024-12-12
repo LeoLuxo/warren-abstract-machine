@@ -6,10 +6,10 @@ use derive_more::derive::{Deref, DerefMut, Display, From, Index, IndexMut, IntoI
 use crate::{
 	ast::{Fact, Functor, Identifier},
 	display_iter,
-	machine_types::VarRegister,
+	machine_types::{CodeAddress, VarRegister},
 	parser::{parser_sequence::Separator, Parsable, Parser},
 	substitution::VarEntryPoint,
-	universal_compiler::Compiled,
+	universal_compiler::{Compiled, OffsetJumpLabels},
 	CompilableProgram, Interpreter, Language, Substitution,
 };
 
@@ -20,6 +20,7 @@ use crate::{
 */
 
 pub mod compiler;
+// pub mod machine;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L1;
@@ -64,7 +65,7 @@ impl Interpreter<L1> for L1Interpreter {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum L1Instruction {
-	Call(Identifier),
+	Call(CodeAddress),
 	Proceed,
 
 	PutStructure(Functor, VarRegister),
@@ -84,7 +85,7 @@ impl fmt::Display for L1Instruction {
 	#[rustfmt::skip]
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.pad(&match self {
-			L1Instruction::Call(identifier)           => format!("call {identifier}"),
+			L1Instruction::Call(addr)                 => format!("call {addr}"),
 			L1Instruction::Proceed                    => "proceed".to_string(),
 			L1Instruction::PutStructure(functor, reg) => format!("put_structure {functor}, {reg}"),
 			L1Instruction::SetVariable(reg)           => format!("set_variable {reg}"),
@@ -108,6 +109,15 @@ impl VarEntryPoint for L1Instruction {
 			L1Instruction::PutVariable(xn, ai) => Some((*xn, L1Instruction::PutValue(*xn, *ai))),
 
 			_ => None,
+		}
+	}
+}
+
+impl OffsetJumpLabels for L1Instruction {
+	fn offset_jump_labels(self, offset: CodeAddress) -> Self {
+		match self {
+			L1Instruction::Call(addr) => L1Instruction::Call(addr + offset),
+			i => i,
 		}
 	}
 }

@@ -7,12 +7,18 @@ use crate::{
 	anonymous::AnonymousIdGenerator,
 	ast::Functor,
 	enumerate, indent,
-	machine_types::{Cell, Heap, HeapAddress, StoreAddress, ReadWrite, VarRegister, VarRegisters},
+	machine_types::{Cell, Heap, HeapAddress, ReadWrite, StoreAddress, VarRegister, VarRegisters},
 	substitution::{self, ExtractSubstitution, SubstTerm},
 	universal_compiler::Compiled,
 };
 
-use super::{L0Instruction, L0};
+use super::{L1Instruction, L1};
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
 
 /*
 --------------------------------------------------------------------------------
@@ -29,6 +35,7 @@ pub struct M0 {
 	var_registers: VarRegisters<Cell>,
 
 	heap: Heap<Cell>,
+	code: Vec<>
 }
 
 impl M0 {
