@@ -146,7 +146,29 @@ impl Facts {
 impl Parsable for Facts {
 	fn parser_match(parser: &mut Parser) -> Result<Self> {
 		let facts = parser.match_sequence_by_type::<Fact>(Separator::None, None)?;
+		
 
 		Ok(Self(facts))
+	}
+}
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[cfg(test)]
+mod test_super {
+	use crate::parser::ParseAs;
+
+	use super::*;
+
+	#[test]
+	fn test_parse_facts_sequence() {
+		assert!("f(1)    ".parse_as::<Facts>().is_err());
+		assert!("f(1).    ".parse_as::<Facts>().is_ok());
+		assert!("f(1).   d(1)   ".parse_as::<Facts>().is_err());
+		assert!("f(1).    d(1).    ".parse_as::<Facts>().is_ok());
 	}
 }

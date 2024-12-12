@@ -13,7 +13,7 @@ fn main() -> Result<()> {
 
 	// println!("{}", "const".parse_as::<Term>()?);
 
-	solve::<L1>("p(X, Y, Y).".parse_as()?, "p(X, Y, Z).".parse_as()?)?;
+	solve::<L1>("p(X, Y, Y). f(1).".parse_as()?, "f(X).".parse_as()?)?;
 
 	Ok(())
 }

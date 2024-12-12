@@ -56,10 +56,21 @@ impl<'source> Parser<'source> {
 
 	pub fn parse<T: Parsable>(source: &'source str) -> Result<T> {
 		let mut parser = Self::new(source);
-		let result = parser.match_type()?;
-		parser.match_end()?;
 
-		Ok(result)
+		// Workaround for try{} blocks until they arrive in stable rust
+		
+
+		(|| {
+			let result = parser.match_type()?;
+			parser.match_end()?;
+
+			Ok(result)
+		})()
+		.context(format!(
+			"'{}' could not be parsed as '{}'",
+			source,
+			std::any::type_name::<T>(),
+		))
 	}
 
 	fn push_checkpoint(&mut self) {
@@ -159,9 +170,21 @@ impl<'source> Parser<'source> {
 	}
 
 	pub fn match_type<T: Parsable>(&mut self) -> Result<T> {
-		self.auto_trim();
+		self.push_checkpoint();
 
-		<T as Parsable>::parser_match(self)
+		let matched = <T as Parsable>::parser_match(self);
+
+		if matched.is_err() {
+			self.rewind_checkpoint();
+		}
+
+		self.pop_checkpoint();
+
+		matched.context(format!(
+			"Type '{}' not matched, found '{}'",
+			std::any::type_name::<T>(),
+			self.source
+		))
 	}
 
 	pub fn match_horizontal_whitespace(&mut self) -> Result<()> {

@@ -274,6 +274,7 @@ mod tests {
 		assert!("1232345".parse_as::<VarRegister>().is_err());
 		assert!("E1".parse_as::<VarRegister>().is_err());
 		assert!("AX1".parse_as::<VarRegister>().is_err());
+		assert!("A1 extra".parse_as::<VarRegister>().is_err());
 
 		Ok(())
 	}
@@ -309,6 +310,8 @@ mod tests {
 			)
 			.into()
 		);
+
+		assert!("{ C -> f(a, X) } extra".parse_as::<Substitution>().is_err());
 
 		Ok(())
 	}
@@ -392,6 +395,13 @@ mod tests {
 		assert!("(1,3)".parse_as::<Term>().is_err());
 		assert!("f(1 2)".parse_as::<Term>().is_err());
 		assert!("f(1\n2)".parse_as::<Term>().is_err());
+
+		assert!("Var extra".parse_as::<Substitution>().is_err());
+		assert!("const extra".parse_as::<Substitution>().is_err());
+		assert!("func(1) extra".parse_as::<Substitution>().is_err());
+		assert!("Var 1".parse_as::<Substitution>().is_err());
+		assert!("const 2".parse_as::<Substitution>().is_err());
+		assert!("func(1) 3".parse_as::<Substitution>().is_err());
 	}
 
 	#[test]
@@ -478,5 +488,9 @@ mod tests {
 		assert!("Path(1) :- .".parse_as::<Clause>().is_err());
 		assert!("Path(1) :- path().".parse_as::<Clause>().is_err());
 		assert!("Path(1) : path(1).".parse_as::<Clause>().is_err());
+
+		assert!("Path(1) : path(1). extra".parse_as::<Substitution>().is_err());
+		assert!("Path(1) : path(1). 1".parse_as::<Substitution>().is_err());
+		assert!("Path(1) : path(1). path(1)".parse_as::<Substitution>().is_err());
 	}
 }

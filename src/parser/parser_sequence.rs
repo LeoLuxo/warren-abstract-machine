@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use anyhow::{ensure, Ok, Result};
 
 use super::{Parsable, Parser};
@@ -56,6 +58,7 @@ impl Parser<'_> {
 				// Match the inner element
 				let element = inner_fn(self);
 
+				// If we didn't match, then that means we're hitting things outside the sequence (potentially a closed paren or other stuff), break peacefully
 				if let Result::Ok(e) = element {
 					sequence.push(e);
 				} else {
@@ -82,7 +85,7 @@ impl Parser<'_> {
 		})();
 
 		if result.is_err() {
-			// If any error occurs while matching the sequence, rollback the source string
+			// If any error occurs while matching the sequence (ie the WHOLE sequence is invalid), rollback the ENTIRE source string of the sequence
 			self.rewind_checkpoint();
 		}
 		self.pop_checkpoint();

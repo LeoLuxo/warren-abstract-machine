@@ -7,7 +7,7 @@ use std::{
 use derive_more::derive::{Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign};
 
 use crate::{
-	ast::{Functor, Identifier},
+	ast::Functor,
 	display_iter, display_map,
 	universal_compiler::{Combinable, Labels},
 	Successor,
@@ -211,22 +211,6 @@ impl<T> Default for Code<T> {
 			instructions: Default::default(),
 			labels: Default::default(),
 		}
-	}
-}
-
-impl<T> Index<&Identifier> for Code<T> {
-	type Output = CodeAddress;
-
-	fn index(&self, index: &Identifier) -> &Self::Output {
-		self.labels.get(index).expect("Attempted reading an invalid code label")
-	}
-}
-
-impl<T> IndexMut<&Identifier> for Code<T> {
-	fn index_mut(&mut self, index: &Identifier) -> &mut Self::Output {
-		self.labels
-			.get_mut(index)
-			.expect("Attempted accessing an invalid code label")
 	}
 }
 

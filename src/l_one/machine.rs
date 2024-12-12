@@ -1,4 +1,6 @@
-use anyhow::{bail, Result};
+use std::mem;
+
+use anyhow::{bail, Context, Result};
 use derive_more::derive::Display;
 
 use crate::{
@@ -37,10 +39,14 @@ impl M1 {
 	}
 
 	pub fn add_code(&mut self, code: Compiled<L1>) {
-		self.code.combine(Code {
+		let new_code = Code {
 			instructions: code.instructions,
 			labels: code.labels,
-		});
+		};
+
+		let combined = new_code.combined(mem::take(&mut self.code));
+
+		self.code = combined;
 	}
 
 	pub fn execute(&mut self) -> Result<()> {
@@ -121,7 +127,12 @@ impl M1 {
 		match instruction {
 			// New M1 instructions
 			L1Instruction::Call(identifier) => {
-				let address = self.code[identifier];
+				let address = *self
+					.code
+					.labels
+					.get(identifier)
+					.context(format!("Unification error. Fact '{}' does not exist", identifier))?;
+
 				return Ok(Some(address));
 			}
 
