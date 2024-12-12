@@ -304,7 +304,7 @@ impl PartialEq for SubstTerm {
 // }
 
 pub trait ExtractSubstitution<L: Language> {
-	fn execute_code(&mut self, code: &Compiled<L>) -> Result<()>;
+	fn execute_static_code(&mut self, code: &Compiled<L>) -> Result<()>;
 
 	fn extract_heap(&self, address: HeapAddress, anon_gen: &mut AnonymousIdGenerator<HeapAddress>)
 		-> Result<SubstTerm>;
@@ -331,7 +331,7 @@ pub trait ExtractSubstitution<L: Language> {
 		let (analysable_code, var_heap_mapping) = code.to_statically_analysable();
 		println!("Statically analysable code:\n{}\n", analysable_code);
 
-		self.execute_code(&analysable_code)?;
+		self.execute_static_code(&analysable_code)?;
 		self.extract_substitution(var_heap_mapping)
 	}
 }

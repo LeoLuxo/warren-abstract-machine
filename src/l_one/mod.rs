@@ -20,6 +20,7 @@ use crate::{
 */
 
 pub mod compiler;
+pub mod machine;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L1;

@@ -9,7 +9,7 @@ use crate::{
 	machine_types::VarRegister,
 	parser::{Parsable, Parser},
 	substitution::{ExtractSubstitution, VarEntryPoint},
-	universal_compiler::{CompilableProgram, CompilableQuery, Compiled},
+	universal_compiler::{Combinable, CompilableProgram, CompilableQuery, Compiled},
 	Interpreter, Language, Substitution,
 };
 
@@ -57,7 +57,7 @@ impl Interpreter<L0> for L0Interpreter {
 
 		let mut machine = M0::new();
 
-		let code = compiled_query + self.compiled_program.clone();
+		let code = compiled_query.combined(self.compiled_program.clone());
 		println!("Code:\n{}\n", code);
 
 		let solution = machine.execute_and_extract_substitution(code)?;

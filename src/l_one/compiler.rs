@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ops::Add;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -10,6 +9,7 @@ use crate::ast::Fact;
 use crate::ast::GetFunctor;
 use crate::substitution::{VarToRegMapping, VariableContext};
 use crate::universal_compiler;
+use crate::universal_compiler::Combinable;
 use crate::universal_compiler::CompilableProgram;
 use crate::universal_compiler::CompilableQuery;
 use crate::universal_compiler::Compiled;
@@ -32,7 +32,7 @@ impl CompilableProgram<L1> for Facts {
 			.map(|fact| fact.compile_as_program())
 			.collect::<Result<Vec<_>>>()?
 			.into_iter()
-			.reduce(Add::add)
+			.reduce(Combinable::combined)
 			.context("empty set of facts cannot be compiled")
 	}
 }

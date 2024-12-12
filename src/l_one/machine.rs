@@ -6,12 +6,12 @@ use crate::{
 	anonymous::AnonymousIdGenerator,
 	ast::Functor,
 	enumerate, indent,
-	machine_types::{Cell, Heap, HeapAddress, ReadWrite, StoreAddress, VarRegisters},
+	machine_types::{Cell, Code, CodeAddress, Heap, HeapAddress, ReadWrite, StoreAddress, VarRegisters},
 	substitution::{self, ExtractSubstitution, SubstTerm},
-	universal_compiler::Compiled,
+	universal_compiler::{Combinable, Compiled, Labels},
 };
 
-use super::{L0Instruction, L0};
+use super::{L1Instruction, L1};
 
 /*
 --------------------------------------------------------------------------------
@@ -21,23 +21,36 @@ use super::{L0Instruction, L0};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Display)]
 #[display("M0:\n{}", indent!(format!("mode = {mode}\nS = {s}\n{var_registers}\n\nHEAP:\n{}", indent!(enumerate!(format!("{}", heap))))))]
-pub struct M0 {
+pub struct M1 {
 	mode: ReadWrite,
 
 	s: HeapAddress,
+	p: CodeAddress,
 	var_registers: VarRegisters<Cell>,
 
 	heap: Heap<Cell>,
+	code: Code<L1Instruction>,
 }
 
-impl M0 {
+impl M1 {
 	pub fn new() -> Self {
 		Default::default()
 	}
 
-	pub fn execute(&mut self, instructions: &[L0Instruction]) -> Result<()> {
-		for i in instructions {
-			self.execute_instruction(i)?;
+	pub fn add_code(&mut self, instructions: Vec<L1Instruction>, labels: Labels) {
+		self.code.combine(Code { instructions, labels });
+	}
+
+	pub fn execute(&mut self) -> Result<()> {
+		self.p = 0.into();
+
+		loop {
+			let Some(next_p) = self.execute_step()? else {
+				// Execute_step has not provided a new PC, which indicates we should halt the machine
+				break;
+			};
+
+			self.p = next_p;
 		}
 
 		Ok(())
@@ -100,26 +113,58 @@ impl M0 {
 		Ok(())
 	}
 
-	fn execute_instruction(&mut self, instruction: &L0Instruction) -> Result<()> {
+	fn execute_step(&mut self) -> Result<Option<CodeAddress>> {
+		let instruction = &self.code[self.p];
+
 		match instruction {
-			L0Instruction::PutStructure(functor, reg) => {
+			// New M1 instructions
+			L1Instruction::Call(identifier) => {
+				let address = self.code[identifier];
+				return Ok(Some(address));
+			}
+
+			L1Instruction::Proceed => {
+				return Ok(None);
+			}
+
+			L1Instruction::PutVariable(xn, ai) => {
+				let pointer = Cell::REF(self.heap.top());
+				self.var_registers.set(*xn, pointer.clone());
+				self.var_registers.set(*ai, pointer.clone());
+				self.heap.push(pointer);
+			}
+
+			L1Instruction::PutValue(xn, ai) => {
+				self.var_registers.set(*ai, self.var_registers[*xn].clone());
+			}
+
+			L1Instruction::GetVariable(xn, ai) => {
+				self.var_registers.set(*xn, self.var_registers[*ai].clone());
+			}
+
+			L1Instruction::GetValue(xn, ai) => {
+				self.unify(StoreAddress::Register(*xn), StoreAddress::Register(*ai))?;
+			}
+
+			// Same as in M0
+			L1Instruction::PutStructure(functor, reg) => {
 				let pointer = Cell::STR(self.heap.top() + 1);
 				self.var_registers.set(*reg, pointer.clone());
 				self.heap.push(pointer);
 				self.heap.push(Cell::Functor(functor.clone()));
 			}
 
-			L0Instruction::SetVariable(reg) => {
+			L1Instruction::SetVariable(reg) => {
 				let pointer = Cell::REF(self.heap.top());
 				self.var_registers.set(*reg, pointer.clone());
 				self.heap.push(pointer);
 			}
 
-			L0Instruction::SetValue(reg) => {
+			L1Instruction::SetValue(reg) => {
 				self.heap.push(self.var_registers[*reg].clone());
 			}
 
-			L0Instruction::GetStructure(functor, reg) => {
+			L1Instruction::GetStructure(functor, reg) => {
 				let addr = self.deref(StoreAddress::Register(*reg));
 
 				match self.read_store(addr) {
@@ -139,7 +184,7 @@ impl M0 {
 				}
 			}
 
-			L0Instruction::UnifyVariable(reg) => {
+			L1Instruction::UnifyVariable(reg) => {
 				match self.mode {
 					ReadWrite::Read => {
 						self.var_registers.set(*reg, self.heap[self.s].clone());
@@ -155,7 +200,7 @@ impl M0 {
 				self.s += 1;
 			}
 
-			L0Instruction::UnifyValue(reg) => {
+			L1Instruction::UnifyValue(reg) => {
 				match self.mode {
 					ReadWrite::Read => {
 						self.unify(StoreAddress::Register(*reg), StoreAddress::Heap(self.s))?;
@@ -170,7 +215,7 @@ impl M0 {
 			}
 		}
 
-		Ok(())
+		Ok(Some(self.p + 1))
 	}
 }
 
@@ -180,9 +225,10 @@ impl M0 {
 --------------------------------------------------------------------------------
 */
 
-impl ExtractSubstitution<L0> for M0 {
-	fn execute_static_code(&mut self, code: &Compiled<L0>) -> Result<()> {
-		self.execute(&code.instructions)
+impl ExtractSubstitution<L1> for M1 {
+	fn execute_static_code(&mut self, code: &Compiled<L1>) -> Result<()> {
+		self.add_code(code.instructions.clone(), code.labels.clone());
+		self.execute()
 	}
 
 	fn extract_heap(

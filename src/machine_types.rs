@@ -6,7 +6,12 @@ use std::{
 
 use derive_more::derive::{Add, AddAssign, Deref, DerefMut, Display, From, Into, IntoIterator, Sub, SubAssign};
 
-use crate::{ast::Functor, display_iter, display_map, Successor};
+use crate::{
+	ast::{Functor, Identifier},
+	display_iter, display_map,
+	universal_compiler::{Combinable, Labels},
+	Successor,
+};
 
 /*
 --------------------------------------------------------------------------------
@@ -62,24 +67,24 @@ impl Successor for VarRegister {
 
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
 #[display("{}", display_map!(_0, "\n", "{} = {}"))]
-#[display(bounds(C: Display + Ord))]
-pub struct VarRegisters<C>(HashMap<VarRegister, C>);
+#[display(bounds(T: Display + Ord))]
+pub struct VarRegisters<T>(HashMap<VarRegister, T>);
 
-impl<C> VarRegisters<C> {
-	pub fn set(&mut self, index: VarRegister, value: C) {
+impl<T> VarRegisters<T> {
+	pub fn set(&mut self, index: VarRegister, value: T) {
 		self.0.insert(index, value);
 	}
 }
 
-impl<C> Index<VarRegister> for VarRegisters<C> {
-	type Output = C;
+impl<T> Index<VarRegister> for VarRegisters<T> {
+	type Output = T;
 
 	fn index(&self, index: VarRegister) -> &Self::Output {
 		self.0.get(&index).expect("Attempted reading an uninitialized register")
 	}
 }
 
-impl<C> Default for VarRegisters<C> {
+impl<T> Default for VarRegisters<T> {
 	fn default() -> Self {
 		Self(Default::default())
 	}
@@ -119,11 +124,11 @@ pub struct HeapAddress(usize);
 
 #[derive(Clone, Debug, PartialEq, Eq, Display, From, Into, IntoIterator, Deref, DerefMut)]
 #[display("{}", display_iter!(_0, "\n"))]
-#[display(bounds(C: Display))]
-pub struct Heap<C>(Vec<C>);
+#[display(bounds(T: Display))]
+pub struct Heap<T>(Vec<T>);
 
-impl<C> Heap<C> {
-	pub fn push(&mut self, value: C) {
+impl<T> Heap<T> {
+	pub fn push(&mut self, value: T) {
 		self.0.push(value);
 	}
 
@@ -132,15 +137,15 @@ impl<C> Heap<C> {
 	}
 }
 
-impl<C> Index<HeapAddress> for Heap<C> {
-	type Output = C;
+impl<T> Index<HeapAddress> for Heap<T> {
+	type Output = T;
 
 	fn index(&self, index: HeapAddress) -> &Self::Output {
 		self.0.get(*index).expect("Attempted reading an invalid heap address")
 	}
 }
 
-impl<C> IndexMut<HeapAddress> for Heap<C> {
+impl<T> IndexMut<HeapAddress> for Heap<T> {
 	fn index_mut(&mut self, index: HeapAddress) -> &mut Self::Output {
 		self.0
 			.get_mut(*index)
@@ -148,11 +153,33 @@ impl<C> IndexMut<HeapAddress> for Heap<C> {
 	}
 }
 
-impl<C> Default for Heap<C> {
+impl<T> Default for Heap<T> {
 	fn default() -> Self {
 		Self(Default::default())
 	}
 }
+
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Display)]
+pub enum StoreAddress {
+	Register(VarRegister),
+	Heap(HeapAddress),
+}
+
+#[rustfmt::skip] impl PartialEq<VarRegister> for StoreAddress { fn eq(&self, other: &VarRegister) -> bool { match self  { StoreAddress::Register(var_register) => var_register == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<StoreAddress> for VarRegister { fn eq(&self, other: &StoreAddress)     -> bool { match other { StoreAddress::Register(var_register) => var_register == self,  _ => false, } } }
+#[rustfmt::skip] impl PartialEq<HeapAddress> for StoreAddress { fn eq(&self, other: &HeapAddress) -> bool { match self  { StoreAddress::Heap(heap_address)     => heap_address == other, _ => false, } } }
+#[rustfmt::skip] impl PartialEq<StoreAddress> for HeapAddress { fn eq(&self, other: &StoreAddress)     -> bool { match other { StoreAddress::Heap(heap_address)     => heap_address == self,  _ => false, } } }
+
+#[rustfmt::skip] impl Add<usize> for StoreAddress { type Output = Self; fn add(self, rhs: usize) -> Self::Output { match self { StoreAddress::Register(var_register) => StoreAddress::Register(var_register + rhs), StoreAddress::Heap(heap_address) => StoreAddress::Heap(heap_address + rhs), } } }
+#[rustfmt::skip] impl Sub<usize> for StoreAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { match self { StoreAddress::Register(var_register) => StoreAddress::Register(var_register - rhs), StoreAddress::Heap(heap_address) => StoreAddress::Heap(heap_address - rhs), } } }
+#[rustfmt::skip] impl AddAssign<usize> for StoreAddress { fn add_assign(&mut self, rhs: usize)  {  match self { StoreAddress::Register(var_register) => *var_register += rhs, StoreAddress::Heap(heap_address) => *heap_address += rhs, } } }
+#[rustfmt::skip] impl SubAssign<usize> for StoreAddress { fn sub_assign(&mut self, rhs: usize)  {  match self { StoreAddress::Register(var_register) => *var_register -= rhs, StoreAddress::Heap(heap_address) => *heap_address -= rhs, } } }
 
 /*
 --------------------------------------------------------------------------------
@@ -169,3 +196,62 @@ pub struct CodeAddress(usize);
 #[rustfmt::skip] impl Sub<usize> for CodeAddress { type Output = Self; fn sub(self, rhs: usize) -> Self::Output { Self(self.0 - rhs) } }
 #[rustfmt::skip] impl AddAssign<usize> for CodeAddress { fn add_assign(&mut self, rhs: usize) { self.0 += rhs } }
 #[rustfmt::skip] impl SubAssign<usize> for CodeAddress { fn sub_assign(&mut self, rhs: usize) { self.0 -= rhs } }
+
+#[derive(Clone, Debug, PartialEq, Eq, Display, From, Into)]
+#[display("{}\n{}", display_iter!(instructions, "\n"), display_map!(labels))]
+#[display(bounds(T: Display))]
+pub struct Code<T> {
+	pub instructions: Vec<T>,
+	pub labels: Labels,
+}
+
+impl<T> Default for Code<T> {
+	fn default() -> Self {
+		Self {
+			instructions: Default::default(),
+			labels: Default::default(),
+		}
+	}
+}
+
+impl<T> Index<&Identifier> for Code<T> {
+	type Output = CodeAddress;
+
+	fn index(&self, index: &Identifier) -> &Self::Output {
+		self.labels.get(index).expect("Attempted reading an invalid code label")
+	}
+}
+
+impl<T> IndexMut<&Identifier> for Code<T> {
+	fn index_mut(&mut self, index: &Identifier) -> &mut Self::Output {
+		self.labels
+			.get_mut(index)
+			.expect("Attempted accessing an invalid code label")
+	}
+}
+
+impl<T> Index<CodeAddress> for Code<T> {
+	type Output = T;
+
+	fn index(&self, index: CodeAddress) -> &Self::Output {
+		self.instructions
+			.get(*index)
+			.expect("Attempted reading an invalid code address")
+	}
+}
+
+impl<T> IndexMut<CodeAddress> for Code<T> {
+	fn index_mut(&mut self, index: CodeAddress) -> &mut Self::Output {
+		self.instructions
+			.get_mut(*index)
+			.expect("Attempted accessing an invalid code address")
+	}
+}
+
+impl<T> Combinable for Code<T> {
+	fn combined(self, other: Self) -> Self {
+		let (instructions, labels) = (self.instructions, self.labels).combined((other.instructions, other.labels));
+
+		Self { instructions, labels }
+	}
+}

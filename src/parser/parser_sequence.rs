@@ -19,7 +19,7 @@ pub enum Separator<'a> {
 	String(&'a str),
 }
 
-impl<'source> Parser<'source> {
+impl Parser<'_> {
 	#[rustfmt::skip]
 	pub fn match_separator(&mut self, separator: Separator) -> Result<()> {
 		match separator {

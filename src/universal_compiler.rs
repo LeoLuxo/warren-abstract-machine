@@ -2,7 +2,6 @@ use std::{
 	collections::{hash_map, HashMap, VecDeque},
 	fmt::Display,
 	mem,
-	ops::{Add, AddAssign},
 };
 
 use anyhow::Result;
@@ -11,7 +10,7 @@ use velcro::vec;
 
 use crate::{
 	ast::{Functor, GetFunctor, Identifier, Term, Variable},
-	display_iter,
+	display_iter, display_map,
 	machine_types::{CodeAddress, VarRegister},
 	substitution::VarToRegMapping,
 	util::Successor,
@@ -32,13 +31,15 @@ pub trait CompilableQuery<L: Language> {
 	fn compile_as_query(self) -> Result<Compiled<L>>;
 }
 
+pub type Labels = HashMap<Identifier, CodeAddress>;
+
 #[derive(Clone, Debug, PartialEq, Eq, From, Display)]
-#[display("{}\n{}", display_iter!(instructions, "\n"), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
+#[display("{}\n{}\n{}", display_iter!(instructions, "\n"), display_map!(labels), var_reg_mapping.as_ref().map_or("(without mapping)".to_string(), |m| format!("(where {})", m)))]
 #[display(bounds(L::InstructionSet: Display))]
 pub struct Compiled<L: Language> {
 	pub instructions: Vec<L::InstructionSet>,
 	pub var_reg_mapping: Option<VarToRegMapping>,
-	pub labels: HashMap<Identifier, CodeAddress>,
+	pub labels: Labels,
 }
 
 impl<L: Language> Default for Compiled<L> {
@@ -51,13 +52,42 @@ impl<L: Language> Default for Compiled<L> {
 	}
 }
 
-impl<L: Language> Compiled<L> {
-	pub fn combined(self, other: Self) -> Self {
-		let label_offset = self.instructions.len();
+/*
+--------------------------------------------------------------------------------
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+--------------------------------------------------------------------------------
+*/
+
+pub trait Combinable {
+	fn combined(self, other: Self) -> Self;
+
+	fn combine(&mut self, other: Self)
+	where
+		Self: Default,
+	{
+		*self = mem::take(self).combined(other)
+	}
+}
+
+impl<I> Combinable for (Vec<I>, HashMap<Identifier, CodeAddress>) {
+	fn combined(self, other: Self) -> Self {
+		let label_offset = self.0.len();
 
 		// self's instructions then other's instructions, in order
-		let instructions = vec![..self.instructions, ..other.instructions];
+		let instructions = vec![..self.0, ..other.0];
 
+		let labels = self
+			.1
+			.into_iter()
+			.chain(other.1.into_iter().map(|(ident, addr)| (ident, addr + label_offset)))
+			.collect();
+
+		(instructions, labels)
+	}
+}
+
+impl<L: Language> Combinable for Compiled<L> {
+	fn combined(self, other: Self) -> Self {
 		// self's mapping takes priority over other's mapping (overwritten where needed)
 		let var_reg_mapping = match (self.var_reg_mapping, other.var_reg_mapping) {
 			(Some(m1), Some(m2)) => Some(m2.into_iter().chain(m1).collect()),
@@ -65,40 +95,13 @@ impl<L: Language> Compiled<L> {
 			_ => None,
 		};
 
-		let labels = self
-			.labels
-			.into_iter()
-			.chain(
-				other
-					.labels
-					.into_iter()
-					.map(|(ident, addr)| (ident, addr + label_offset)),
-			)
-			.collect();
+		let (instructions, labels) = (self.instructions, self.labels).combined((other.instructions, other.labels));
 
 		Self {
 			instructions,
 			var_reg_mapping,
 			labels,
 		}
-	}
-
-	pub fn combine(&mut self, other: Self) {
-		*self = mem::take(self).combined(other)
-	}
-}
-
-impl<L: Language> Add for Compiled<L> {
-	type Output = Self;
-
-	fn add(self, rhs: Self) -> Self::Output {
-		self.combined(rhs)
-	}
-}
-
-impl<L: Language> AddAssign for Compiled<L> {
-	fn add_assign(&mut self, rhs: Self) {
-		self.combine(rhs);
 	}
 }
 
