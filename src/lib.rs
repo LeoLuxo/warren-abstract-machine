@@ -4,6 +4,7 @@
 //! This is the real root of the project.
 
 use anyhow::Result;
+use ast::Fact;
 use substitution::Substitution;
 use universal_compiler::{CompilableProgram, CompilableQuery};
 use util::Successor;
@@ -46,7 +47,7 @@ pub fn solve<L: Language>(program: L::Program, query: L::Query) -> Result<Substi
 /// (for example that the types of both programs and query must be compilable).
 pub trait Language: Sized {
 	/// The (AST-) type the language takes as a program.
-	type Program: CompilableProgram<Self>;
+	type Program: CompilableProgram<Self> = Fact;
 
 	/// The (AST-) type the language takes as a query.
 	type Query: CompilableQuery<Self>;

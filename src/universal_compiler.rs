@@ -143,7 +143,7 @@ pub enum MappingToken {
 	ArgumentRegister(VarRegister, VarRegister),
 }
 
-fn allocate_register_id(
+fn allocate_new_register_id(
 	term: &Term,
 	variable_mapping: &mut HashMap<Variable, VarRegister>,
 	reserved_ids: &mut VarRegister,
@@ -170,13 +170,13 @@ pub fn flatten_term(
 	// The important part is that they respect two rules:
 	// - If a same variable already had an id, then it must be assigned that same id
 	// - An id as a term argument must match the id of the subterm
-	// Anything else doesn't matter in the end
-
-	// But this algorithm preserves it anyway
+	// Anything else doesn't matter in the end.
+	// I had the realization above while I was reworking the recursive version of this algorithm.
+	// But in the end this imperative version preserves the wambook order anyway so it doesn't matter
 
 	// Handle separately the case where the root term is a variable
 	if let Term::Variable(_) = &outer_term {
-		let xn = allocate_register_id(&outer_term, variable_mapping, reserved_ids);
+		let xn = allocate_new_register_id(&outer_term, variable_mapping, reserved_ids);
 		let ai = outer_id;
 
 		let token = MappingToken::ArgumentRegister(xn, ai);
@@ -209,7 +209,7 @@ pub fn flatten_term(
 				tokens.push_back(MappingToken::Functor(id, functor));
 
 				for subterm in structure.arguments {
-					let sub_id = allocate_register_id(&subterm, variable_mapping, reserved_ids);
+					let sub_id = allocate_new_register_id(&subterm, variable_mapping, reserved_ids);
 					term_queue.push_back((sub_id, subterm));
 
 					tokens.push_back(MappingToken::VarRegister(sub_id));
@@ -220,7 +220,7 @@ pub fn flatten_term(
 				let functor = structure.get_functor();
 
 				for subterm in structure.arguments {
-					let sub_id = allocate_register_id(&subterm, variable_mapping, reserved_ids);
+					let sub_id = allocate_new_register_id(&subterm, variable_mapping, reserved_ids);
 					term_queue.push_front((sub_id, subterm));
 
 					// Pushing the argument tokens in front and then reversing their order in-place avoids allocating a temp vec
